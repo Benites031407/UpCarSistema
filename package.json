@@ -1,0 +1,29 @@
+{
+  "name": "machine-rental-system",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:iot\"",
+    "dev:frontend": "npm run dev --workspace=@machine-rental/frontend",
+    "dev:backend": "npm run dev --workspace=@machine-rental/backend",
+    "dev:iot": "npm run dev --workspace=@machine-rental/iot-controller",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "test:watch": "npm run test:watch --workspaces",
+    "lint": "npm run lint --workspaces",
+    "type-check": "npm run type-check --workspaces",
+    "clean": "rimraf packages/*/dist packages/*/node_modules node_modules",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0",
+    "rimraf": "^4.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}

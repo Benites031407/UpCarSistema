@@ -1,0 +1,429 @@
+import { Router, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import rateLimit from 'express-rate-limit';
+import { PostgresUserRepository } from '../repositories/user.js';
+import { User as AppUser } from '../models/types.js';
+import { jwtService } from './jwt.js';
+import { passwordService } from './password.js';
+import { redisSessionManager } from './redis.js';
+import { passport, configureGoogleAuth } from './google.js';
+import { authenticateToken } from './middleware.js';
+import { 
+  registerSchema, 
+  loginSchema, 
+  refreshTokenSchema, 
+  changePasswordSchema,
+  updateProfileSchema,
+  RegisterInput,
+  LoginInput,
+  RefreshTokenInput,
+  ChangePasswordInput,
+  UpdateProfileInput
+} from './validation.js';
+import { createLogger } from '../utils/logger.js';
+import { auditOperations } from '../middleware/auditLog.js';
+import { createSecureSession } from './sessionSecurity.js';
+
+const logger = createLogger('auth-routes');
+const userRepository = new PostgresUserRepository();
+
+// Configure Google OAuth
+configureGoogleAuth();
+
+// Rate limiting
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 requests per windowMs
+  message: { error: 'Too many authentication attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const authRouter = Router();
+
+// Apply rate limiting
+authRouter.use('/login', authLimiter);
+authRouter.use('/register', authLimiter);
+authRouter.use(generalLimiter);
+
+// Initialize passport
+authRouter.use(passport.initialize());
+
+// Validation middleware
+function validateRequest(schema: any) {
+  return (req: Request, res: Response, next: any) => {
+    try {
+      const result = schema.parse(req.body);
+      req.body = result;
+      next();
+    } catch (error: any) {
+      res.status(400).json({
+        error: 'Validation failed',
+        details: error.errors?.map((e: any) => ({
+          field: e.path.join('.'),
+          message: e.message
+        })) || []
+      });
+    }
+  };
+}
+
+// Register endpoint
+authRouter.post('/register', validateRequest(registerSchema), async (req: Request, res: Response) => {
+  try {
+    const { email, password, name }: RegisterInput = req.body;
+
+    // Check if user already exists
+    const existingUser = await userRepository.findByEmail(email);
+    if (existingUser) {
+      res.status(409).json({ error: 'User already exists with this email' });
+      return;
+    }
+
+    // Validate password strength
+    const passwordValidation = passwordService.validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      res.status(400).json({
+        error: 'Password validation failed',
+        details: passwordValidation.errors
+      });
+      return;
+    }
+
+    // Hash password
+    const passwordHash = await passwordService.hashPassword(password);
+
+    // Create user
+    const user = await userRepository.create({
+      email,
+      name,
+      passwordHash,
+      accountBalance: 0,
+      subscriptionStatus: 'none'
+    });
+
+    // Generate tokens
+    const accessToken = jwtService.generateAccessToken(user);
+    const refreshToken = jwtService.generateRefreshToken(user);
+
+    // Create secure session with timestamp matching JWT iat (in seconds)
+    const iat = Math.floor(Date.now() / 1000);
+    const sessionId = `${user.id}-${iat}`;
+    await createSecureSession(user.id, req, sessionId);
+
+    // Store refresh token
+    const refreshTokenId = uuidv4();
+    await redisSessionManager.storeRefreshToken(refreshTokenId, user.id, refreshToken);
+
+    // Audit log successful registration
+    auditOperations.login(req, true, email);
+
+    logger.info(`User registered successfully: ${email}`);
+
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        accountBalance: user.accountBalance,
+        subscriptionStatus: user.subscriptionStatus
+      },
+      accessToken,
+      refreshToken: refreshTokenId
+    });
+  } catch (error) {
+    // Audit log failed registration
+    auditOperations.login(req, false, req.body.email, 'Registration failed');
+    
+    logger.error('Registration error:', error);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// Login endpoint
+authRouter.post('/login', validateRequest(loginSchema), async (req: Request, res: Response) => {
+  try {
+    const { email, password }: LoginInput = req.body;
+
+    // Find user by email
+    const user = await userRepository.findByEmail(email);
+    if (!user || !user.passwordHash) {
+      auditOperations.login(req, false, email, 'User not found');
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    // Verify password
+    const isValidPassword = await passwordService.verifyPassword(password, user.passwordHash);
+    if (!isValidPassword) {
+      auditOperations.login(req, false, email, 'Invalid password');
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    // Generate tokens
+    const accessToken = jwtService.generateAccessToken(user);
+    const refreshToken = jwtService.generateRefreshToken(user);
+
+    // Create secure session with timestamp matching JWT iat (in seconds)
+    const iat = Math.floor(Date.now() / 1000);
+    const sessionId = `${user.id}-${iat}`;
+    await createSecureSession(user.id, req, sessionId);
+
+    // Store refresh token
+    const refreshTokenId = uuidv4();
+    await redisSessionManager.storeRefreshToken(refreshTokenId, user.id, refreshToken);
+
+    // Audit log successful login
+    auditOperations.login(req, true, email);
+
+    logger.info(`User logged in successfully: ${email}`);
+
+    res.json({
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        accountBalance: user.accountBalance,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionExpiry: user.subscriptionExpiry
+      },
+      accessToken,
+      refreshToken: refreshTokenId
+    });
+  } catch (error) {
+    // Audit log failed login
+    auditOperations.login(req, false, req.body.email, 'Login failed');
+    
+    logger.error('Login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Refresh token endpoint
+authRouter.post('/refresh', validateRequest(refreshTokenSchema), async (req: Request, res: Response) => {
+  try {
+    const { refreshToken: refreshTokenId }: RefreshTokenInput = req.body;
+
+    // Get refresh token from Redis
+    const tokenData = await redisSessionManager.getRefreshToken(refreshTokenId);
+    if (!tokenData) {
+      res.status(401).json({ error: 'Invalid refresh token' });
+      return;
+    }
+
+    // Verify the actual JWT token
+    const payload = jwtService.verifyToken(tokenData.token);
+    
+    // Get user
+    const user = await userRepository.findById(payload.userId);
+    if (!user) {
+      res.status(401).json({ error: 'User not found' });
+      return;
+    }
+
+    // Generate new tokens
+    const newAccessToken = jwtService.generateAccessToken(user);
+    const newRefreshToken = jwtService.generateRefreshToken(user);
+
+    // Store new session
+    const sessionId = `${user.id}-${Date.now()}`;
+    await redisSessionManager.storeSession(sessionId, user.id);
+
+    // Store new refresh token and delete old one
+    const newRefreshTokenId = uuidv4();
+    await redisSessionManager.storeRefreshToken(newRefreshTokenId, user.id, newRefreshToken);
+    await redisSessionManager.deleteRefreshToken(refreshTokenId);
+
+    res.json({
+      accessToken: newAccessToken,
+      refreshToken: newRefreshTokenId
+    });
+  } catch (error) {
+    logger.error('Token refresh error:', error);
+    res.status(401).json({ error: 'Token refresh failed' });
+  }
+});
+
+// Logout endpoint
+authRouter.post('/logout', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    if (req.sessionId) {
+      await redisSessionManager.deleteSession(req.sessionId);
+    }
+
+    // Also delete refresh token if provided
+    const refreshTokenId = req.body.refreshToken;
+    if (refreshTokenId) {
+      await redisSessionManager.deleteRefreshToken(refreshTokenId);
+    }
+
+    // Audit log logout
+    auditOperations.logout(req);
+
+    logger.info(`User logged out: ${((req as any).user as AppUser)?.email || 'unknown'}`);
+    res.json({ message: 'Logout successful' });
+  } catch (error) {
+    logger.error('Logout error:', error);
+    res.status(500).json({ error: 'Logout failed' });
+  }
+});
+
+// Get current user profile
+authRouter.get('/me', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user as AppUser;
+    
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        accountBalance: user.accountBalance,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionExpiry: user.subscriptionExpiry,
+        lastDailyUse: user.lastDailyUse,
+        createdAt: user.createdAt
+      }
+    });
+  } catch (error) {
+    logger.error('Get profile error:', error);
+    res.status(500).json({ error: 'Failed to get profile' });
+  }
+});
+
+// Update user profile
+authRouter.put('/me', authenticateToken, validateRequest(updateProfileSchema), async (req: Request, res: Response) => {
+  try {
+    const userId = ((req as any).user as AppUser).id;
+    const updateData: UpdateProfileInput = req.body;
+
+    // If email is being updated, check if it's already taken
+    if (updateData.email) {
+      const existingUser = await userRepository.findByEmail(updateData.email);
+      if (existingUser && existingUser.id !== userId) {
+        res.status(409).json({ error: 'Email already in use' });
+        return;
+      }
+    }
+
+    // Update user
+    const updatedUser = await userRepository.update(userId, updateData);
+    if (!updatedUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    logger.info(`User profile updated: ${updatedUser.email}`);
+
+    res.json({
+      message: 'Profile updated successfully',
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        accountBalance: updatedUser.accountBalance,
+        subscriptionStatus: updatedUser.subscriptionStatus,
+        subscriptionExpiry: updatedUser.subscriptionExpiry
+      }
+    });
+  } catch (error) {
+    logger.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Change password
+authRouter.put('/password', authenticateToken, validateRequest(changePasswordSchema), async (req: Request, res: Response) => {
+  try {
+    const userId = ((req as any).user as AppUser).id;
+    const { currentPassword, newPassword }: ChangePasswordInput = req.body;
+
+    // Get user with password hash
+    const user = await userRepository.findById(userId);
+    if (!user || !user.passwordHash) {
+      res.status(400).json({ error: 'Cannot change password for this account' });
+      return;
+    }
+
+    // Verify current password
+    const isValidPassword = await passwordService.verifyPassword(currentPassword, user.passwordHash);
+    if (!isValidPassword) {
+      res.status(401).json({ error: 'Current password is incorrect' });
+      return;
+    }
+
+    // Validate new password strength
+    const passwordValidation = passwordService.validatePasswordStrength(newPassword);
+    if (!passwordValidation.isValid) {
+      res.status(400).json({
+        error: 'Password validation failed',
+        details: passwordValidation.errors
+      });
+      return;
+    }
+
+    // Hash new password
+    const newPasswordHash = await passwordService.hashPassword(newPassword);
+
+    // Update password
+    await userRepository.update(userId, { passwordHash: newPasswordHash });
+
+    logger.info(`Password changed for user: ${user.email}`);
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    logger.error('Change password error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+// Google OAuth routes
+authRouter.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+authRouter.get('/google/callback', 
+  passport.authenticate('google', { session: false }),
+  async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user as AppUser;
+      
+      if (!user) {
+        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?error=oauth_failed`);
+        return;
+      }
+
+      // Generate tokens
+      const accessToken = jwtService.generateAccessToken(user);
+      const refreshToken = jwtService.generateRefreshToken(user);
+
+      // Store session
+      const sessionId = `${user.id}-${Date.now()}`;
+      await redisSessionManager.storeSession(sessionId, user.id);
+
+      // Store refresh token
+      const refreshTokenId = uuidv4();
+      await redisSessionManager.storeRefreshToken(refreshTokenId, user.id, refreshToken);
+
+      // Redirect to frontend with tokens
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      res.redirect(`${frontendUrl}/auth/callback?token=${accessToken}&refresh=${refreshTokenId}`);
+    } catch (error) {
+      logger.error('Google OAuth callback error:', error);
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/login?error=oauth_failed`);
+    }
+  }
+);
+
+export default authRouter;
