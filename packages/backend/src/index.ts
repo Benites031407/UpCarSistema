@@ -1,6 +1,15 @@
 // Load environment variables FIRST before any other imports
 import dotenv from 'dotenv'
-dotenv.config()
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+dotenv.config({ path: join(__dirname, '..', '.env') })
+
+// Debug: Log Google OAuth config
+console.log('[ENV DEBUG] GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'SET' : 'NOT SET')
+console.log('[ENV DEBUG] GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET')
 
 import express from 'express'
 import cors from 'cors'
@@ -340,8 +349,10 @@ app.get('/api', (_req, res) => {
 })
 
 // Authentication routes with enhanced security
-app.use('/auth', detectBruteForce(5, 15 * 60 * 1000), authRouter) // 5 attempts per 15 minutes
-app.use('/api/auth', detectBruteForce(5, 15 * 60 * 1000), authRouter) // Also mount under /api/auth for frontend
+// Relaxed limits for development - increase for production
+const bruteForceAttempts = process.env.NODE_ENV === 'production' ? 5 : 100;
+app.use('/auth', detectBruteForce(bruteForceAttempts, 15 * 60 * 1000), authRouter)
+app.use('/api/auth', detectBruteForce(bruteForceAttempts, 15 * 60 * 1000), authRouter) // Also mount under /api/auth for frontend
 
 // Machine management routes
 app.use('/api/machines', machineRouter)

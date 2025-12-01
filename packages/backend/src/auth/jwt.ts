@@ -1,3 +1,12 @@
+// Ensure environment variables are loaded
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: join(__dirname, '..', '..', '.env') });
+
 import jwt, { SignOptions } from 'jsonwebtoken';
 import { User } from '../models/types.js';
 

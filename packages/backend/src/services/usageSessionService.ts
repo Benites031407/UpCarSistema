@@ -320,7 +320,7 @@ export class UsageSessionService {
       await this.machineRepo.updateStatus(session.machineId, 'online', client);
 
       // Increment machine operating hours
-      await this.machineService.incrementOperatingHours(session.machineId, session.duration);
+      await this.machineService.incrementOperatingHours(session.machineId, session.duration, client);
 
       await client.query('COMMIT');
 

@@ -63,10 +63,10 @@ export const rateLimitConfigs = {
     }
   }),
 
-  // Payment endpoints (very restrictive)
+  // Payment endpoints (very restrictive in production, relaxed in development)
   payment: rateLimit({
     windowMs: 5 * 60 * 1000, // 5 minutes
-    max: 5, // Limit each IP to 5 payment attempts per windowMs
+    max: process.env.NODE_ENV === 'production' ? 5 : 100, // Relaxed for development
     message: {
       success: false,
       error: 'Too many payment attempts, please try again later',
@@ -219,6 +219,12 @@ function sanitizeString(input: string): string {
  * SQL injection prevention middleware
  */
 export function preventSQLInjection(req: Request, res: Response, next: NextFunction): void {
+  // Skip OAuth callback routes - they contain encoded data from external providers
+  if (req.path.includes('/google/callback') || req.path.includes('/oauth')) {
+    next();
+    return;
+  }
+
   const sqlInjectionPatterns = [
     /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|SCRIPT)\b)/gi,
     /(\b(OR|AND)\s+\d+\s*=\s*\d+)/gi,

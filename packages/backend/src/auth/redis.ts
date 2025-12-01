@@ -8,6 +8,7 @@ export class RedisSessionManager {
   private readonly sessionPrefix = 'session:';
   private readonly refreshTokenPrefix = 'refresh:';
   private readonly userSessionsPrefix = 'user_sessions:';
+  private readonly passwordResetPrefix = 'password_reset:';
   private readonly sessionTTL = 3600; // 1 hour in seconds
   private readonly refreshTokenTTL = 604800; // 7 days in seconds
 
@@ -214,6 +215,46 @@ export class RedisSessionManager {
     await this.connect();
     const userSessionsKey = `${this.userSessionsPrefix}${userId}`;
     return await this.client.sCard(userSessionsKey);
+  }
+
+  // Password reset token methods
+  async storePasswordResetToken(email: string, token: string, ttlSeconds: number): Promise<void> {
+    await this.connect();
+    
+    const tokenData = {
+      email,
+      createdAt: new Date().toISOString()
+    };
+
+    // Store token -> email mapping
+    await this.client.setEx(
+      `${this.passwordResetPrefix}${token}`,
+      ttlSeconds,
+      JSON.stringify(tokenData)
+    );
+  }
+
+  async getPasswordResetEmail(token: string): Promise<string | null> {
+    await this.connect();
+    
+    const tokenData = await this.client.get(`${this.passwordResetPrefix}${token}`);
+    
+    if (!tokenData) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(tokenData);
+      return parsed.email;
+    } catch (error) {
+      logger.error('Failed to parse password reset token data:', error);
+      return null;
+    }
+  }
+
+  async deletePasswordResetToken(token: string): Promise<void> {
+    await this.connect();
+    await this.client.del(`${this.passwordResetPrefix}${token}`);
   }
 }
 

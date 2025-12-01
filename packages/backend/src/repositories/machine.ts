@@ -17,7 +17,7 @@ export class PostgresMachineRepository implements MachineRepository {
         end: row.operating_hours_end
       },
       maintenanceInterval: row.maintenance_interval,
-      currentOperatingHours: row.current_operating_hours,
+      currentOperatingHours: row.current_operating_minutes || row.current_operating_hours || 0,
       pricePerMinute: row.price_per_minute ? parseFloat(row.price_per_minute) : 1.00,
       maxDurationMinutes: row.max_duration_minutes || 30,
       powerConsumptionWatts: row.power_consumption_watts || 1200,
@@ -131,7 +131,7 @@ export class PostgresMachineRepository implements MachineRepository {
       values.push(data.maintenanceInterval);
     }
     if (data.currentOperatingHours !== undefined) {
-      fields.push(`current_operating_hours = $${paramCount++}`);
+      fields.push(`current_operating_minutes = $${paramCount++}`);
       values.push(data.currentOperatingHours);
     }
     if (data.temperature !== undefined) {
@@ -225,12 +225,12 @@ export class PostgresMachineRepository implements MachineRepository {
     return result.rows.length > 0 ? this.mapRowToMachine(result.rows[0]) : null;
   }
 
-  async incrementOperatingHours(machineId: string, hours: number, client?: PoolClient): Promise<Machine | null> {
+  async incrementOperatingHours(machineId: string, minutes: number, client?: PoolClient): Promise<Machine | null> {
     const executor = client || db;
     
     const result = await executor.query(
-      'UPDATE machines SET current_operating_hours = current_operating_hours + $1 WHERE id = $2 RETURNING *',
-      [hours, machineId]
+      'UPDATE machines SET current_operating_minutes = current_operating_minutes + $1 WHERE id = $2 RETURNING *',
+      [minutes, machineId]
     );
     
     return result.rows.length > 0 ? this.mapRowToMachine(result.rows[0]) : null;
@@ -238,7 +238,7 @@ export class PostgresMachineRepository implements MachineRepository {
 
   async findMaintenanceRequired(): Promise<Machine[]> {
     const result = await db.query(
-      'SELECT * FROM machines WHERE current_operating_hours >= maintenance_interval AND status != $1',
+      'SELECT * FROM machines WHERE current_operating_minutes >= maintenance_interval AND status != $1',
       ['maintenance']
     );
     

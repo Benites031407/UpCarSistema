@@ -185,9 +185,9 @@ export class MachineService {
   /**
    * Increment machine operating hours after usage
    */
-  async incrementOperatingHours(machineId: string, minutes: number): Promise<Machine> {
-    const hours = minutes / 60;
-    const machine = await this.machineRepo.incrementOperatingHours(machineId, hours);
+  async incrementOperatingHours(machineId: string, minutes: number, client?: any): Promise<Machine> {
+    // Store minutes directly instead of converting to hours
+    const machine = await this.machineRepo.incrementOperatingHours(machineId, minutes, client);
     
     if (!machine) {
       throw new Error('Machine not found');

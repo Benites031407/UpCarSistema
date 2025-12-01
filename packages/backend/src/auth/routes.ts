@@ -23,6 +23,8 @@ import {
 import { createLogger } from '../utils/logger.js';
 import { auditOperations } from '../middleware/auditLog.js';
 import { createSecureSession } from './sessionSecurity.js';
+import { emailService } from '../services/emailService.js';
+import crypto from 'crypto';
 
 const logger = createLogger('auth-routes');
 const userRepository = new PostgresUserRepository();
@@ -256,6 +258,104 @@ authRouter.post('/refresh', validateRequest(refreshTokenSchema), async (req: Req
   }
 });
 
+// Forgot password endpoint
+authRouter.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({ error: 'Email is required' });
+      return;
+    }
+
+    // Check if user exists
+    const user = await userRepository.findByEmail(email);
+    
+    if (user) {
+      // Generate secure reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      
+      // Store token in Redis with 1 hour expiration
+      await redisSessionManager.storePasswordResetToken(email, resetToken, 3600); // 1 hour
+      
+      // Send password reset email
+      await emailService.sendPasswordResetEmail(email, resetToken);
+      
+      logger.info(`Password reset requested for: ${email}`);
+      
+      res.json({ 
+        success: true,
+        userExists: true,
+        message: 'Password reset email sent successfully' 
+      });
+    } else {
+      // User doesn't exist
+      logger.info(`Password reset requested for non-existent email: ${email}`);
+      
+      res.json({ 
+        success: true,
+        userExists: false,
+        message: 'Email not found in our system' 
+      });
+    }
+  } catch (error) {
+    logger.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to process request' });
+  }
+});
+
+// Reset password endpoint
+authRouter.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      res.status(400).json({ error: 'Token and new password are required' });
+      return;
+    }
+
+    // Validate password strength
+    if (newPassword.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters long' });
+      return;
+    }
+
+    // Get email from token
+    const email = await redisSessionManager.getPasswordResetEmail(token);
+    
+    if (!email) {
+      res.status(400).json({ error: 'Invalid or expired reset token' });
+      return;
+    }
+
+    // Get user
+    const user = await userRepository.findByEmail(email);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Hash new password
+    const hashedPassword = await passwordService.hashPassword(newPassword);
+    
+    // Update password
+    await userRepository.update(user.id, { password: hashedPassword });
+    
+    // Delete reset token
+    await redisSessionManager.deletePasswordResetToken(token);
+    
+    // Invalidate all existing sessions for security
+    // (User will need to login again with new password)
+    
+    logger.info(`Password reset successful for: ${email}`);
+    
+    res.json({ message: 'Password reset successful. Please login with your new password.' });
+  } catch (error) {
+    logger.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
 // Logout endpoint
 authRouter.post('/logout', authenticateToken, async (req: Request, res: Response) => {
   try {
@@ -408,8 +508,11 @@ authRouter.get('/google/callback',
       const accessToken = jwtService.generateAccessToken(user);
       const refreshToken = jwtService.generateRefreshToken(user);
 
-      // Store session
-      const sessionId = `${user.id}-${Date.now()}`;
+      // Decode token to get iat (issued at time)
+      const payload = jwtService.verifyToken(accessToken);
+      
+      // Store session with same format as middleware expects
+      const sessionId = `${user.id}-${payload.iat}`;
       await redisSessionManager.storeSession(sessionId, user.id);
 
       // Store refresh token
