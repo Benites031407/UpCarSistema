@@ -49,7 +49,7 @@ export const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white flex items-center justify-center px-4 py-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-400 via-30% via-orange-300 via-60% to-orange-100 flex items-center justify-center px-4 py-8 relative overflow-hidden">
       {/* Animated background circles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
@@ -61,7 +61,7 @@ export const ForgotPasswordPage: React.FC = () => {
         {/* Logo */}
         <div className="text-center mb-8">
           <img 
-            src="/assets/upcar-logo.png" 
+            src="/assets/upcar-logo-preto.png" 
             alt="UpCar Aspiradores" 
             className="h-24 mx-auto mb-4 drop-shadow-lg"
             onError={(e) => {
@@ -133,6 +133,11 @@ export const ForgotPasswordPage: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {/* Footer */}
+        <p className="text-center text-gray-600 text-xs uppercase tracking-wider mt-6 drop-shadow-sm">
+          Desenvolvido por: Cube³ Tecnologia
+        </p>
       </div>
     </div>
   );

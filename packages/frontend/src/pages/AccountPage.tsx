@@ -38,6 +38,12 @@ export const AccountPage: React.FC = () => {
     name: user?.name || '',
     email: user?.email || '',
   });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
@@ -364,16 +370,28 @@ export const AccountPage: React.FC = () => {
             {activeTab === 'settings' && (
               <div className="space-y-6">
                 {message && (
-                  <div className={`p-4 rounded-md ${
-                    message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+                  <div className={`p-4 rounded-md flex justify-between items-center ${
+                    message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
                   }`}>
-                    {message.text}
+                    <span>{message.text}</span>
+                    <button
+                      onClick={() => setMessage(null)}
+                      className="text-gray-500 hover:text-gray-700"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
                 )}
 
-                <div>
+                {/* Profile Information Section */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">Informações do Perfil</h3>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Informações do Perfil</h3>
+                      <p className="text-sm text-gray-500 mt-1">Atualize suas informações pessoais</p>
+                    </div>
                     {!isEditingProfile && (
                       <button
                         onClick={() => {
@@ -382,10 +400,14 @@ export const AccountPage: React.FC = () => {
                             name: user?.name || '',
                             email: user?.email || '',
                           });
+                          setMessage(null);
                         }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
                       >
-                        Editar Perfil
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Editar
                       </button>
                     )}
                   </div>
@@ -397,76 +419,235 @@ export const AccountPage: React.FC = () => {
                         setLoading(true);
                         await api.put('/auth/me', profileData);
                         await refreshUser();
-                        setMessage({ type: 'success', text: 'Profile updated successfully!' });
+                        setMessage({ type: 'success', text: 'Perfil atualizado com sucesso!' });
                         setIsEditingProfile(false);
                       } catch (error: any) {
                         setMessage({ 
                           type: 'error', 
-                          text: error.response?.data?.error || 'Failed to update profile' 
+                          text: error.response?.data?.error || 'Falha ao atualizar perfil' 
                         });
                       } finally {
                         setLoading(false);
                       }
                     }} className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">Nome</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
                         <input
                           type="text"
                           value={profileData.name}
                           onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                           required
                         />
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700">E-mail</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
                         <input
                           type="email"
                           value={profileData.email}
                           onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                           required
                         />
                       </div>
 
-                      <div className="flex justify-end space-x-3">
+                      <div className="flex justify-end space-x-3 pt-2">
                         <button
                           type="button"
-                          onClick={() => setIsEditingProfile(false)}
-                          className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                          onClick={() => {
+                            setIsEditingProfile(false);
+                            setMessage(null);
+                          }}
+                          className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
                         >
                           Cancelar
                         </button>
                         <button
                           type="submit"
                           disabled={loading}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                          className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {loading ? 'Salvando...' : 'Salvar Alterações'}
                         </button>
                       </div>
                     </form>
                   ) : (
-                    <div className="space-y-3 bg-gray-50 p-4 rounded-lg">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">Nome</label>
-                        <p className="mt-1 text-sm text-gray-900">{user?.name}</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500">E-mail</label>
-                        <p className="mt-1 text-sm text-gray-900">{user?.email}</p>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <label className="block text-xs font-medium text-gray-500 uppercase mb-1">Nome</label>
+                          <p className="text-base text-gray-900 font-medium">{user?.name}</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <label className="block text-xs font-medium text-gray-500 uppercase mb-1">E-mail</label>
+                          <p className="text-base text-gray-900 font-medium">{user?.email}</p>
+                        </div>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h4 className="font-medium text-yellow-900 mb-2">Informações da Conta</h4>
-                  <div className="text-sm text-yellow-800 space-y-1">
-                    <p>• Saldo da Conta: {formatCurrency(user?.accountBalance || 0)}</p>
-                    <p>• Assinatura: {user?.subscriptionStatus === 'active' ? 'Ativa' : 'Nenhuma'}</p>
-                    <p>• Tipo de Conta: Cliente</p>
+                {/* Change Password Section */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Alterar Senha</h3>
+                      <p className="text-sm text-gray-500 mt-1">Mantenha sua conta segura</p>
+                    </div>
+                    {!isChangingPassword && (
+                      <button
+                        onClick={() => {
+                          setIsChangingPassword(true);
+                          setPasswordData({
+                            currentPassword: '',
+                            newPassword: '',
+                            confirmPassword: '',
+                          });
+                          setMessage(null);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                        Alterar Senha
+                      </button>
+                    )}
+                  </div>
+
+                  {isChangingPassword ? (
+                    <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      
+                      if (passwordData.newPassword !== passwordData.confirmPassword) {
+                        setMessage({ type: 'error', text: 'As senhas não coincidem' });
+                        return;
+                      }
+
+                      if (passwordData.newPassword.length < 6) {
+                        setMessage({ type: 'error', text: 'A senha deve ter pelo menos 6 caracteres' });
+                        return;
+                      }
+
+                      try {
+                        setLoading(true);
+                        await api.put('/auth/password', {
+                          currentPassword: passwordData.currentPassword,
+                          newPassword: passwordData.newPassword,
+                        });
+                        setMessage({ type: 'success', text: 'Senha alterada com sucesso!' });
+                        setIsChangingPassword(false);
+                        setPasswordData({
+                          currentPassword: '',
+                          newPassword: '',
+                          confirmPassword: '',
+                        });
+                      } catch (error: any) {
+                        setMessage({ 
+                          type: 'error', 
+                          text: error.response?.data?.error || 'Falha ao alterar senha' 
+                        });
+                      } finally {
+                        setLoading(false);
+                      }
+                    }} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Senha Atual</label>
+                        <input
+                          type="password"
+                          value={passwordData.currentPassword}
+                          onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nova Senha</label>
+                        <input
+                          type="password"
+                          value={passwordData.newPassword}
+                          onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          required
+                          minLength={6}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Mínimo de 6 caracteres</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirmar Nova Senha</label>
+                        <input
+                          type="password"
+                          value={passwordData.confirmPassword}
+                          onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                          className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          required
+                          minLength={6}
+                        />
+                      </div>
+
+                      <div className="flex justify-end space-x-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsChangingPassword(false);
+                            setPasswordData({
+                              currentPassword: '',
+                              newPassword: '',
+                              confirmPassword: '',
+                            });
+                            setMessage(null);
+                          }}
+                          className="px-4 py-2 border-2 border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {loading ? 'Alterando...' : 'Alterar Senha'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <div className="flex items-center text-gray-600">
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <span className="text-sm">Sua senha está protegida</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Account Information */}
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-lg p-6">
+                  <h4 className="font-semibold text-orange-900 mb-3 flex items-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Informações da Conta
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-white/70 p-3 rounded-lg">
+                      <p className="text-xs text-orange-700 font-medium">Saldo</p>
+                      <p className="text-lg font-bold text-orange-900">{formatCurrency(user?.accountBalance || 0)}</p>
+                    </div>
+                    <div className="bg-white/70 p-3 rounded-lg">
+                      <p className="text-xs text-orange-700 font-medium">Assinatura</p>
+                      <p className="text-lg font-bold text-orange-900">
+                        {user?.subscriptionStatus === 'active' ? 'Ativa' : 'Nenhuma'}
+                      </p>
+                    </div>
+                    <div className="bg-white/70 p-3 rounded-lg">
+                      <p className="text-xs text-orange-700 font-medium">Tipo</p>
+                      <p className="text-lg font-bold text-orange-900">Cliente</p>
+                    </div>
                   </div>
                 </div>
               </div>

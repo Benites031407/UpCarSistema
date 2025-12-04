@@ -50,7 +50,7 @@ export const RegisterPage: React.FC = () => {
   // Show email form
   if (showEmailForm) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white flex items-center justify-center px-4 py-8 relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-400 via-30% via-orange-300 via-60% to-orange-100 flex items-center justify-center px-4 py-8 relative overflow-hidden">
         {/* Animated background circles */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
@@ -62,7 +62,7 @@ export const RegisterPage: React.FC = () => {
           {/* Logo */}
           <div className="text-center mb-8">
             <img 
-              src="/assets/upcar-logo.png" 
+              src="/assets/upcar-logo-preto.png" 
               alt="UpCar Aspiradores" 
               className="h-24 mx-auto mb-4 drop-shadow-lg"
               onError={(e) => {
@@ -128,7 +128,6 @@ export const RegisterPage: React.FC = () => {
                   placeholder="••••••••"
                   minLength={6}
                 />
-                <p className="text-xs text-gray-500 mt-1">Mínimo de 6 caracteres</p>
               </div>
 
               <div>
@@ -145,6 +144,36 @@ export const RegisterPage: React.FC = () => {
                   placeholder="••••••••"
                   minLength={6}
                 />
+                {formData.confirmPassword && (
+                  <p className={`text-xs mt-1 ${
+                    formData.password === formData.confirmPassword 
+                      ? 'text-green-600' 
+                      : 'text-red-600'
+                  }`}>
+                    {formData.password === formData.confirmPassword 
+                      ? '✓ As senhas coincidem' 
+                      : '✗ As senhas não coincidem'}
+                  </p>
+                )}
+              </div>
+
+              {/* Password Requirements */}
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <p className="text-xs font-medium text-gray-700 mb-1">Requisitos da senha:</p>
+                <ul className="text-xs text-gray-600 space-y-1">
+                  <li className={`flex items-center ${formData.password.length >= 6 ? 'text-green-600' : ''}`}>
+                    <span className="mr-2">{formData.password.length >= 6 ? '✓' : '○'}</span>
+                    Mínimo de 6 caracteres
+                  </li>
+                  <li className={`flex items-center ${/[a-zA-Z]/.test(formData.password) ? 'text-green-600' : ''}`}>
+                    <span className="mr-2">{/[a-zA-Z]/.test(formData.password) ? '✓' : '○'}</span>
+                    Pelo menos uma letra
+                  </li>
+                  <li className={`flex items-center ${/\d/.test(formData.password) ? 'text-green-600' : ''}`}>
+                    <span className="mr-2">{/\d/.test(formData.password) ? '✓' : '○'}</span>
+                    Pelo menos um número
+                  </li>
+                </ul>
               </div>
 
               <button
@@ -178,7 +207,7 @@ export const RegisterPage: React.FC = () => {
 
   // Show main registration options (Google first)
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white flex items-center justify-center px-4 py-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-400 via-30% via-orange-300 via-60% to-orange-100 flex items-center justify-center px-4 py-8 relative overflow-hidden">
       {/* Animated background circles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
@@ -190,7 +219,7 @@ export const RegisterPage: React.FC = () => {
         {/* Logo */}
         <div className="text-center mb-8">
           <img 
-            src="/assets/upcar-logo.png" 
+            src="/assets/upcar-logo-preto.png" 
             alt="UpCar Aspiradores" 
             className="h-24 mx-auto mb-4 drop-shadow-lg"
             onError={(e) => {
@@ -239,31 +268,34 @@ export const RegisterPage: React.FC = () => {
             onClick={() => setShowEmailForm(true)}
             className="w-full bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white font-semibold py-4 px-6 rounded-xl border-2 border-white transition-all uppercase tracking-wide shadow-xl hover:shadow-2xl hover:scale-105 transform"
           >
-            Criar Conta com E-mail e Senha
+            Criar Conta com E-mail
           </button>
         </div>
 
         {/* Login Link */}
         <div className="text-center mb-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
-          <p className="text-white/90 text-sm">
-            Já tem uma conta?{' '}
-            <Link to="/login" className="font-bold underline hover:text-white">
-              Entrar
-            </Link>
+          <p className="text-white/90 text-sm mb-3">
+            Já tem uma conta?
           </p>
+          <Link 
+            to="/login" 
+            className="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:scale-105 transform uppercase tracking-wide"
+          >
+            Fazer Login
+          </Link>
         </div>
 
         {/* Terms */}
-        <p className="text-center text-white/80 text-xs mb-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+        <p className="text-center text-gray-700 text-xs mb-6 animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.5s' }}>
           Ao criar uma conta, você aceita nossos{' '}
-          <a href="#" className="underline hover:text-white font-medium">Termos e Condições</a>
+          <a href="#" className="underline hover:text-gray-900 font-medium">Termos e Condições</a>
           {' '}e a{' '}
-          <a href="#" className="underline hover:text-white font-medium">Política de Privacidade</a>
+          <a href="#" className="underline hover:text-gray-900 font-medium">Política de Privacidade</a>
         </p>
 
         {/* Footer */}
-        <p className="text-center text-white/60 text-xs uppercase tracking-wider animate-fade-in" style={{ animationDelay: '0.6s' }}>
-          Desenvolvido por: UpCar Team
+        <p className="text-center text-gray-600 text-xs uppercase tracking-wider animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.6s' }}>
+          Desenvolvido por: Cube³ Tecnologia
         </p>
       </div>
 

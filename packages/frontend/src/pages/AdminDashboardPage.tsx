@@ -11,6 +11,7 @@ type TabType = 'monitoring' | 'machines' | 'customers' | 'analytics';
 export const AdminDashboardPage: React.FC = () => {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('monitoring');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Set page title for admin
   useEffect(() => {
@@ -80,15 +81,29 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gradient-to-br from-gray-50 to-orange-50 lg:bg-gray-100">
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Left Sidebar */}
-      <aside className="bg-gradient-to-b from-orange-600 to-orange-500 text-white w-64 flex flex-col shadow-xl">
+      <aside className={`
+        bg-gradient-to-b from-orange-600 to-orange-500 text-white 
+        w-64 flex flex-col shadow-xl
+        fixed lg:static inset-y-0 left-0 z-30
+        transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         {/* Logo/Brand */}
-        <div className="border-b border-orange-400 bg-black">
+        <div className="py-6 px-4 border-b border-orange-400">
           <img 
-            src="/assets/upcar-logo.png" 
+            src="/assets/upcar-logo-preto.png" 
             alt="UpCar Aspiradores" 
-            className="w-full h-auto block"
+            className="h-16 mx-auto drop-shadow-lg"
           />
         </div>
 
@@ -97,7 +112,10 @@ export const AdminDashboardPage: React.FC = () => {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setSidebarOpen(false); // Close sidebar on mobile after selection
+              }}
               className={`w-full flex items-center px-4 py-3 rounded-lg transition-all ${
                 activeTab === tab.id
                   ? 'bg-orange-700 shadow-lg'
@@ -133,15 +151,34 @@ export const AdminDashboardPage: React.FC = () => {
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden w-full">
         {/* Top Header */}
-        <header className="bg-white shadow-sm border-b px-6 py-4">
+        <header className="bg-gradient-to-r from-orange-600 to-orange-500 lg:bg-white shadow-lg lg:shadow-sm border-b border-orange-400 lg:border-gray-200 px-4 lg:px-6 py-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-800">
-              {tabs.find(t => t.id === activeTab)?.label}
-            </h2>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
+            {/* Mobile Menu Button & Logo */}
+            <div className="flex items-center space-x-3 lg:space-x-0">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="lg:hidden p-2 rounded-lg hover:bg-orange-500 transition-colors"
+              >
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              {/* Mobile Logo */}
+              <img 
+                src="/assets/upcar-logo-preto.png" 
+                alt="UpCar" 
+                className="h-8 lg:hidden"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            </div>
+
+            {/* Desktop Date */}
+            <div className="hidden lg:flex items-center space-x-4">
+              <div className="text-sm text-white">
                 {new Date().toLocaleDateString('pt-BR', { 
                   weekday: 'long', 
                   year: 'numeric', 
@@ -150,11 +187,15 @@ export const AdminDashboardPage: React.FC = () => {
                 })}
               </div>
             </div>
+            {/* User Avatar on Mobile */}
+            <div className="lg:hidden w-10 h-10 rounded-full bg-orange-700 flex items-center justify-center font-bold text-white shadow-lg">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
           </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           {renderContent()}
         </main>
       </div>

@@ -56,6 +56,7 @@ export const MachineRegistryComponent: React.FC = () => {
     powerConsumptionWatts: 1200,
     kwhRate: 0.65,
   });
+  const formRef = React.useRef<HTMLDivElement>(null);
 
   const queryClient = useQueryClient();
 
@@ -191,6 +192,13 @@ export const MachineRegistryComponent: React.FC = () => {
       kwhRate: machine.kwhRate || 0.65,
     });
     setShowForm(true);
+    
+    // Scroll to form on mobile to show it
+    setTimeout(() => {
+      if (formRef.current) {
+        formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   };
 
   const handleStatusChange = (machineId: string, newStatus: string) => {
@@ -230,7 +238,7 @@ export const MachineRegistryComponent: React.FC = () => {
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium shadow-lg transition-all"
           >
             Tentar Novamente
           </button>
@@ -243,27 +251,28 @@ export const MachineRegistryComponent: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Registro de Máquinas</h2>
+        <h2 className="hidden lg:block text-2xl font-bold text-gray-900">Registro de Máquinas</h2>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            className="bg-orange-600 text-white px-5 py-3 rounded-lg hover:bg-orange-700 text-sm lg:text-base font-medium shadow-lg transition-all"
           >
-            Adicionar Nova Máquina
+            <span className="hidden lg:inline">Adicionar Nova Máquina</span>
+            <span className="lg:hidden">+ Nova Máquina</span>
           </button>
         )}
       </div>
 
       {/* Registration Form */}
       {showForm && (
-        <div className="bg-white shadow rounded-lg p-6">
+        <div ref={formRef} className="bg-white shadow rounded-lg p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
             {editingMachine ? 'Editar Máquina' : 'Registrar Nova Máquina'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Código da Máquina
                 </label>
                 <input
@@ -271,24 +280,24 @@ export const MachineRegistryComponent: React.FC = () => {
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                   disabled={!!editingMachine}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Localização
                 </label>
                 <input
                   type="text"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   ID do Controlador
                 </label>
                 <input
@@ -296,49 +305,49 @@ export const MachineRegistryComponent: React.FC = () => {
                   value={formData.controllerId}
                   onChange={(e) => setFormData({ ...formData, controllerId: e.target.value })}
                   disabled={!!editingMachine}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Intervalo de Manutenção (horas)
                 </label>
                 <input
                   type="number"
                   value={formData.maintenanceInterval}
                   onChange={(e) => setFormData({ ...formData, maintenanceInterval: Number(e.target.value) })}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
                   min="1"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Horário de Início
                 </label>
                 <input
                   type="time"
                   value={formData.operatingHoursStart}
                   onChange={(e) => setFormData({ ...formData, operatingHoursStart: e.target.value })}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Horário de Término
                 </label>
                 <input
                   type="time"
                   value={formData.operatingHoursEnd}
                   onChange={(e) => setFormData({ ...formData, operatingHoursEnd: e.target.value })}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Preço por Minuto (R$)
                 </label>
                 <input
@@ -348,13 +357,13 @@ export const MachineRegistryComponent: React.FC = () => {
                   max="100"
                   value={formData.pricePerMinute}
                   onChange={(e) => setFormData({ ...formData, pricePerMinute: Number(e.target.value) })}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">Valor cobrado por minuto de uso</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Duração Máxima (minutos)
                 </label>
                 <input
@@ -363,13 +372,13 @@ export const MachineRegistryComponent: React.FC = () => {
                   max="120"
                   value={formData.maxDurationMinutes}
                   onChange={(e) => setFormData({ ...formData, maxDurationMinutes: Number(e.target.value) })}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">Tempo máximo de uso permitido (1-120 minutos)</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Consumo de Energia (Watts)
                 </label>
                 <input
@@ -378,13 +387,13 @@ export const MachineRegistryComponent: React.FC = () => {
                   max="10000"
                   value={formData.powerConsumptionWatts}
                   onChange={(e) => setFormData({ ...formData, powerConsumptionWatts: Number(e.target.value) })}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">Potência do aspirador em watts (ex: 1200W)</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Tarifa de Energia (R$/kWh)
                 </label>
                 <input
@@ -394,24 +403,24 @@ export const MachineRegistryComponent: React.FC = () => {
                   max="10"
                   value={formData.kwhRate}
                   onChange={(e) => setFormData({ ...formData, kwhRate: Number(e.target.value) })}
-                  className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">Custo por kWh de energia elétrica</p>
               </div>
             </div>
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end space-x-3 pt-2">
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                className="px-5 py-2.5 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={createMachineMutation.isPending || updateMachineMutation.isPending}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                className="px-5 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transition-all"
               >
                 {editingMachine ? 'Atualizar' : 'Registrar'} Máquina
               </button>
@@ -428,8 +437,84 @@ export const MachineRegistryComponent: React.FC = () => {
           </h3>
           
           {machines && machines.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+            <>
+              {/* Mobile Card View */}
+              <div className="block lg:hidden space-y-4">
+                {machines.map((machine) => (
+                  <div key={machine.id} className="bg-white rounded-lg shadow p-4 border border-gray-200">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">{machine.code}</h3>
+                        <p className="text-sm text-gray-600">{machine.location}</p>
+                      </div>
+                      <select
+                        value={machine.status}
+                        onChange={(e) => handleStatusChange(machine.id, e.target.value)}
+                        className={`text-xs font-medium rounded-full px-3 py-1 ${getStatusColor(machine.status)}`}
+                      >
+                        <option value="online">Ligada</option>
+                        <option value="offline">Desligada</option>
+                        <option value="maintenance">Manutenção</option>
+                      </select>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm mb-4">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Horário:</span>
+                        <span className="font-medium">{machine.operatingHours.start} - {machine.operatingHours.end}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Manutenção:</span>
+                        <span className="font-medium">{machine.currentOperatingHours}h / {machine.maintenanceInterval}h</span>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end space-x-2 pt-3 border-t border-gray-200">
+                      <button
+                        onClick={() => setSelectedMachineForInfo(machine)}
+                        className="p-2 text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                        title="Ver informações"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleEdit(machine)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                        title="Editar"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setSelectedMachineForQR(machine)}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-md transition-colors"
+                        title="QR Code"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(machine)}
+                        disabled={deleteMachineMutation.isPending}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50"
+                        title="Excluir"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -524,7 +609,8 @@ export const MachineRegistryComponent: React.FC = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           ) : (
             <div className="text-center py-8 text-gray-500">
               Nenhuma máquina registrada ainda.

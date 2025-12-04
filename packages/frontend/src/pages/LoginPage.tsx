@@ -56,7 +56,7 @@ export const LoginPage: React.FC = () => {
   // Show email/password form
   if (showEmailLogin) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white flex items-center justify-center px-4 py-8 relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-400 via-30% via-orange-300 via-60% to-orange-100 flex items-center justify-center px-4 py-8 relative overflow-hidden">
         {/* Animated background circles */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
@@ -68,7 +68,7 @@ export const LoginPage: React.FC = () => {
           {/* Logo */}
           <div className="text-center mb-8">
             <img 
-              src="/assets/upcar-logo.png" 
+              src="/assets/upcar-logo-preto.png" 
               alt="UpCar Aspiradores" 
               className="h-24 mx-auto mb-4 drop-shadow-lg"
             />
@@ -153,7 +153,7 @@ export const LoginPage: React.FC = () => {
 
   // Show main login options (Google or Email)
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white flex items-center justify-center px-4 py-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-400 via-30% via-orange-300 via-60% to-orange-100 flex items-center justify-center px-4 py-8 relative overflow-hidden">
       {/* Animated background circles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
@@ -165,7 +165,7 @@ export const LoginPage: React.FC = () => {
         {/* Logo */}
         <div className="text-center mb-8">
           <img 
-            src="/assets/upcar-logo.png" 
+            src="/assets/upcar-logo-preto.png" 
             alt="UpCar Aspiradores" 
             className="h-24 mx-auto mb-4 drop-shadow-lg"
             onError={(e) => {
@@ -219,25 +219,28 @@ export const LoginPage: React.FC = () => {
 
         {/* Register Link */}
         <div className="text-center mb-6 animate-fade-in" style={{ animationDelay: '0.4s' }}>
-          <p className="text-white/90 text-sm">
-            Não tem uma conta?{' '}
-            <Link to="/register" className="font-bold underline hover:text-white">
-              Registrar
-            </Link>
+          <p className="text-white/90 text-sm mb-3">
+            Não tem uma conta?
           </p>
+          <Link 
+            to="/register" 
+            className="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:scale-105 transform uppercase tracking-wide"
+          >
+            Criar Conta
+          </Link>
         </div>
 
         {/* Terms */}
-        <p className="text-center text-white/80 text-xs mb-6 animate-fade-in" style={{ animationDelay: '0.5s' }}>
+        <p className="text-center text-gray-700 text-xs mb-6 animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.5s' }}>
           Ao continuar, você aceita nossos{' '}
-          <a href="#" className="underline hover:text-white font-medium">Termos e Condições</a>
+          <a href="#" className="underline hover:text-gray-900 font-medium">Termos e Condições</a>
           {' '}e a{' '}
-          <a href="#" className="underline hover:text-white font-medium">Política de Privacidade</a>
+          <a href="#" className="underline hover:text-gray-900 font-medium">Política de Privacidade</a>
         </p>
 
         {/* Footer */}
-        <p className="text-center text-white/60 text-xs uppercase tracking-wider animate-fade-in" style={{ animationDelay: '0.6s' }}>
-          Desenvolvido por: UpCar Team
+        <p className="text-center text-gray-600 text-xs uppercase tracking-wider animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.6s' }}>
+          Desenvolvido por: Cube³ Tecnologia
         </p>
       </div>
 

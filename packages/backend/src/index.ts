@@ -119,15 +119,15 @@ app.use(helmet({
 // Enhanced CORS configuration with security hardening
 app.use(cors({
   origin: function (origin, callback) {
+    // In development, allow all origins
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    
     // In production, be more strict about origins
-    if (process.env.NODE_ENV === 'production') {
-      if (!origin) {
-        // In production, reject requests with no origin for security
-        return callback(new Error('Origin header required in production'));
-      }
-    } else {
-      // In development, allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
+    if (!origin) {
+      // In production, reject requests with no origin for security
+      return callback(new Error('Origin header required in production'));
     }
     
     const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000').split(',')
@@ -412,7 +412,7 @@ async function startServer() {
     // Initialize WebSocket service
     webSocketService.initialize(httpServer)
 
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, '0.0.0.0', () => {
       logger.info(`Server running on port ${PORT}`)
       logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`)
       logger.info(`Database status: ${dbConnected ? 'connected' : 'disconnected'}`)

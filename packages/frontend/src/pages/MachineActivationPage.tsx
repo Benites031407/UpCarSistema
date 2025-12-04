@@ -264,29 +264,24 @@ export const MachineActivationPage: React.FC = () => {
                 <div className="text-sm text-gray-600">
                   Código: <span className="font-mono font-bold text-gray-900">{code}</span>
                 </div>
-                {machine.temperature && (
-                  <div className="text-sm text-gray-600 mt-1">
-                    Temperatura: {machine.temperature}°C
-                  </div>
-                )}
               </div>
             )}
 
             {/* Time Selection */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">
-                Selecione o Tempo de Uso
+                Selecione o Tempo
               </h3>
               
               {/* Quick Select Buttons */}
-              <div className="grid grid-cols-4 gap-2 mb-4">
+              <div className="grid grid-cols-4 gap-3 mb-4">
                 {[5, 10, 15, 20].map((time) => (
                   <button
                     key={time}
                     onClick={() => setDuration(time)}
                     disabled={processing}
                     className={`
-                      py-3 px-2 rounded-xl font-bold text-sm transition-all
+                      py-4 px-2 rounded-xl font-bold text-base transition-all
                       ${duration === time
                         ? 'bg-orange-600 text-white shadow-lg scale-105'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -294,82 +289,101 @@ export const MachineActivationPage: React.FC = () => {
                       ${processing ? 'opacity-50 cursor-not-allowed' : ''}
                     `}
                   >
-                    {time} min
+                    {time}min
                   </button>
                 ))}
               </div>
 
-              {/* Custom Time Input */}
+              {/* Custom Time Slider */}
               <div className="bg-gray-50 rounded-xl p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
-                  Ou escolha um tempo personalizado
-                </label>
-                <div className="flex items-center justify-center space-x-3">
+                <div className="flex items-center justify-center space-x-4 mb-3">
                   <button
                     onClick={() => setDuration(Math.max(1, duration - 1))}
                     disabled={processing || duration <= 1}
-                    className="w-12 h-12 bg-white border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    className="w-12 h-12 bg-white border-2 border-gray-300 rounded-full font-bold text-2xl text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
                   >
                     −
                   </button>
-                  <div className="flex-1 max-w-[120px]">
-                    <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={duration}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value);
-                        if (value >= 1 && value <= 30) {
-                          setDuration(value);
-                        }
-                      }}
-                      disabled={processing}
-                      className="w-full text-center text-3xl font-bold text-orange-600 bg-white border-2 border-orange-300 rounded-xl py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:opacity-50"
-                    />
-                    <p className="text-center text-xs text-gray-500 mt-1">minutos</p>
+                  <div className="text-center">
+                    <div className="text-5xl font-bold text-orange-600">{duration}</div>
+                    <p className="text-sm text-gray-500 mt-1">minutos</p>
                   </div>
                   <button
                     onClick={() => setDuration(Math.min(30, duration + 1))}
                     disabled={processing || duration >= 30}
-                    className="w-12 h-12 bg-white border-2 border-gray-300 rounded-lg font-bold text-xl text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    className="w-12 h-12 bg-white border-2 border-gray-300 rounded-full font-bold text-2xl text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
                   >
                     +
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 text-center mt-2">
-                  Máximo: 30 minutos
-                </p>
+                <input
+                  type="range"
+                  min="1"
+                  max="30"
+                  value={duration}
+                  onChange={(e) => setDuration(parseInt(e.target.value))}
+                  disabled={processing}
+                  className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-orange-600"
+                />
               </div>
             </div>
 
-            {/* Price Summary */}
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl shadow-lg p-6 border-2 border-orange-200">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm text-orange-800 font-medium">Tempo Selecionado</p>
-                  <p className="text-2xl font-bold text-orange-900">{duration} minutos</p>
+            {/* Price Display - Large and Prominent */}
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-2xl p-8 text-center">
+              <p className="text-orange-100 text-sm font-medium mb-2">Preço da Aspiração</p>
+              <div className="text-white text-6xl font-bold mb-2">{formatCurrency(duration)}</div>
+              <p className="text-orange-100 text-sm">{duration} minutos de uso</p>
+            </div>
+
+            {/* Account Credit Display */}
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Seu Crédito</p>
+                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(user?.accountBalance || 0)}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-orange-800 font-medium">Custo Total</p>
-                  <p className="text-3xl font-bold text-orange-600">{formatCurrency(duration)}</p>
-                </div>
-              </div>
-              
-              <div className="pt-4 border-t border-orange-300">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-orange-800">Seu Saldo Atual</span>
-                  <span className="font-bold text-orange-900">{formatCurrency(user?.accountBalance || 0)}</span>
-                </div>
-                {user && user.accountBalance >= duration && (
-                  <p className="text-xs text-green-700 mt-2 flex items-center">
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {user && user.accountBalance >= duration ? (
+                  <div className="flex items-center space-x-2 text-green-600">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Saldo suficiente para pagamento
-                  </p>
+                    <span className="font-semibold">OK</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 text-red-600">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-semibold text-sm">Insuficiente</span>
+                  </div>
                 )}
               </div>
+              {user && user.accountBalance < duration && (
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    Você precisa adicionar <span className="font-bold">{formatCurrency(duration - user.accountBalance)}</span> para usar este tempo.
+                  </p>
+                  <Link to="/account" className="text-sm text-orange-600 font-semibold hover:text-orange-700 mt-1 inline-block">
+                    Adicionar crédito →
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Countdown Preview (before starting) */}
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 text-center">
+              <p className="text-gray-600 text-sm mb-3">Tempo de aspiração</p>
+              <div className="text-gray-400 text-7xl font-bold tracking-wider mb-2">
+                {String(Math.floor(duration)).padStart(2, '0')}:00
+              </div>
+              <p className="text-gray-500 text-sm">Pronto para iniciar</p>
             </div>
 
             {/* Payment Method */}
@@ -381,22 +395,28 @@ export const MachineActivationPage: React.FC = () => {
               />
             </div>
 
-            {/* Start Button */}
+            {/* Start Button - Large and Prominent */}
             <button
               onClick={handleActivation}
-              disabled={processing}
-              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+              disabled={processing || (user && user.accountBalance < duration && paymentMethod === 'balance')}
+              className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold py-6 px-6 rounded-2xl transition-all shadow-2xl hover:shadow-3xl disabled:opacity-50 disabled:cursor-not-allowed text-xl"
             >
               {processing ? (
                 <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
                   Processando...
                 </span>
               ) : (
-                'Iniciar Aspirador'
+                <span className="flex items-center justify-center">
+                  <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Iniciar Aspirador
+                </span>
               )}
             </button>
           </div>

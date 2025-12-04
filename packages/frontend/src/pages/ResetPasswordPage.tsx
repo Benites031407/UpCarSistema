@@ -72,7 +72,7 @@ export const ResetPasswordPage: React.FC = () => {
 
   if (!token) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white flex items-center justify-center px-4 py-8">
+      <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-400 via-30% via-orange-300 via-60% to-orange-100 flex items-center justify-center px-4 py-8">
         <div className="max-w-md w-full bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Token Inválido</h2>
           <p className="text-gray-600 mb-6">O link de redefinição de senha é inválido ou expirou.</p>
@@ -88,7 +88,7 @@ export const ResetPasswordPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white flex items-center justify-center px-4 py-8 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-400 via-30% via-orange-300 via-60% to-orange-100 flex items-center justify-center px-4 py-8 relative overflow-hidden">
       {/* Animated background circles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
@@ -100,7 +100,7 @@ export const ResetPasswordPage: React.FC = () => {
         {/* Logo */}
         <div className="text-center mb-8">
           <img 
-            src="/assets/upcar-logo.png" 
+            src="/assets/upcar-logo-preto.png" 
             alt="UpCar Aspiradores" 
             className="h-24 mx-auto mb-4 drop-shadow-lg"
             onError={(e) => {
@@ -108,6 +108,11 @@ export const ResetPasswordPage: React.FC = () => {
             }}
           />
         </div>
+
+        {/* Footer */}
+        <p className="text-center text-gray-600 text-xs uppercase tracking-wider mb-6 drop-shadow-sm">
+          Desenvolvido por: Cube³ Tecnologia
+        </p>
 
         {/* Reset Password Form */}
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">

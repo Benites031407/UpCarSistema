@@ -23,23 +23,7 @@ interface MachineStatus {
   lastHeartbeat?: string;
 }
 
-interface ActiveSession {
-  id: string;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  machineId: string;
-  machineCode: string;
-  machineLocation: string;
-  duration: number;
-  cost: number;
-  paymentMethod: string;
-  startTime: string;
-  endTime: string;
-  timeRemaining: number;
-  progress: number;
-  status: string;
-}
+
 
 export const MonitoringDashboard: React.FC = () => {
   const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
@@ -62,14 +46,7 @@ export const MonitoringDashboard: React.FC = () => {
     refetchInterval: refreshInterval || false,
   });
 
-  const { data: activeSessions, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['active-sessions'],
-    queryFn: async () => {
-      const response = await api.get('/admin/sessions/active');
-      return response.data as ActiveSession[];
-    },
-    refetchInterval: refreshInterval || false,
-  });
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -136,7 +113,7 @@ export const MonitoringDashboard: React.FC = () => {
     }
   };
 
-  if (metricsLoading || machinesLoading || sessionsLoading) {
+  if (metricsLoading || machinesLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600"></div>
@@ -152,8 +129,8 @@ export const MonitoringDashboard: React.FC = () => {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 border-2 border-orange-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
@@ -176,8 +153,8 @@ export const MonitoringDashboard: React.FC = () => {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 border-2 border-orange-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
@@ -200,8 +177,8 @@ export const MonitoringDashboard: React.FC = () => {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 border-2 border-orange-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                   </svg>
                 </div>
@@ -224,8 +201,8 @@ export const MonitoringDashboard: React.FC = () => {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 border-2 border-orange-500 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                   </svg>
                 </div>
@@ -322,71 +299,6 @@ export const MonitoringDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Active Sessions */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              Sessões Ativas
-            </h3>
-            <span className="text-sm text-gray-500">
-              {activeSessions?.length || 0} ativas
-            </span>
-          </div>
-
-          {activeSessions && activeSessions.length > 0 ? (
-            <div className="space-y-4">
-              {activeSessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="border border-gray-200 rounded-lg p-4"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h4 className="font-medium text-gray-900">
-                        {session.machineCode} - {session.machineLocation}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {session.userName} ({session.userEmail})
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-green-600">
-                        {Math.floor(session.timeRemaining / 60)}:{(session.timeRemaining % 60).toString().padStart(2, '0')} restantes
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Sessão de {session.duration} min
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Progresso:</span>
-                      <span className="text-gray-600">{session.progress}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-green-600 h-2 rounded-full transition-all duration-1000"
-                        style={{ width: `${session.progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex justify-between items-center text-sm text-gray-600">
-                    <span>Início: {new Date(session.startTime).toLocaleTimeString()}</span>
-                    <span>Custo: R$ {session.cost.toFixed(2)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              Nenhuma sessão ativa no momento.
-            </div>
-          )}
-        </div>
-      </div>
     </div>
   );
 };
