@@ -152,9 +152,13 @@ export class MachineService {
    * Check for machines that haven't sent heartbeat recently and mark as offline
    */
   async checkOfflineMachines(): Promise<void> {
-    const machines = await this.machineRepo.findByStatus('online');
+    // Check both online and in_use machines for offline status
+    const onlineMachines = await this.machineRepo.findByStatus('online');
+    const inUseMachines = await this.machineRepo.findByStatus('in_use');
+    const machines = [...onlineMachines, ...inUseMachines];
+    
     const now = new Date();
-    const offlineThreshold = 5 * 60 * 1000; // 5 minutes in milliseconds
+    const offlineThreshold = 90 * 1000; // 90 seconds (3x heartbeat interval of 30s)
 
     for (const machine of machines) {
       if (machine.lastHeartbeat) {

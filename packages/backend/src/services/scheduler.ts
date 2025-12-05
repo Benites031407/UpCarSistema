@@ -13,14 +13,14 @@ export class SchedulerService {
   start(): void {
     logger.info('Starting scheduled tasks');
 
-    // Check for offline machines every 2 minutes
+    // Check for offline machines every 30 seconds
     const offlineCheckInterval = setInterval(async () => {
       try {
         await machineService.checkOfflineMachines();
       } catch (error) {
         logger.error('Error checking offline machines:', error);
       }
-    }, 2 * 60 * 1000); // 2 minutes
+    }, 30 * 1000); // 30 seconds
 
     // Retry failed notifications every 15 minutes
     const notificationRetryInterval = setInterval(async () => {

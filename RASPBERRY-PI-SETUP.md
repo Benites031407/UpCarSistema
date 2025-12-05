@@ -253,22 +253,27 @@ sudo nano /etc/systemd/system/upcar-controller.service
 [Unit]
 Description=UpCar IoT Controller
 After=network.target pigpiod.service
+Requires=pigpiod.service
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/UpCarAspiradores/packages/iot-controller
+User=root
+WorkingDirectory=/home/YOUR_USERNAME_HERE/UpCarSistema/packages/iot-controller
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10
-StandardOutput=append:/home/pi/UpCarAspiradores/packages/iot-controller/logs/combined.log
-StandardError=append:/home/pi/UpCarAspiradores/packages/iot-controller/logs/error.log
-
 Environment=NODE_ENV=production
+Environment=PIGPIO_ADDR=localhost
+Environment=PIGPIO_PORT=8888
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+**⚠️ IMPORTANT**: 
+- Replace `YOUR_USERNAME_HERE` with your actual username (e.g., `pedrobpf`)
+- The service runs as `root` to access GPIO pins
+- Logs are stored in systemd journal (view with `sudo journalctl -u upcar-controller -f`)
 
 ### 6.2 Enable and Start Service
 
@@ -290,8 +295,14 @@ sudo systemctl status upcar-controller
 # Real-time logs
 sudo journalctl -u upcar-controller -f
 
-# Or check log files
-tail -f ~/UpCarAspiradores/packages/iot-controller/logs/combined.log
+# Last 50 lines
+sudo journalctl -u upcar-controller -n 50
+
+# Logs since today
+sudo journalctl -u upcar-controller --since today
+
+# Follow logs with timestamps
+sudo journalctl -u upcar-controller -f --output=short-iso
 ```
 
 ---

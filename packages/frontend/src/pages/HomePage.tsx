@@ -106,7 +106,7 @@ export const HomePage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  navigate('/account');
+                  navigate('/account', { state: { tab: 'sessions' } });
                   setSidebarOpen(false);
                 }}
                 className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"

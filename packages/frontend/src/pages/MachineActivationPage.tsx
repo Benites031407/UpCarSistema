@@ -50,10 +50,48 @@ export const MachineActivationPage: React.FC = () => {
   // Real-time session monitoring
   const {
     sessionData: realtimeSession,
-    formattedTimeRemaining,
-    progress,
+    formattedTimeRemaining: wsTimeRemaining,
+    progress: wsProgress,
     isConnected: wsConnected
   } = useRealtimeSession(session?.id);
+
+  // Local countdown timer (fallback if WebSocket doesn't work)
+  const [localTimeRemaining, setLocalTimeRemaining] = useState<number>(0);
+  const [localProgress, setLocalProgress] = useState<number>(0);
+
+  useEffect(() => {
+    if (session && session.status === 'active') {
+      const startTime = new Date(session.startTime || session.createdAt).getTime();
+      const durationMs = duration * 60 * 1000;
+      
+      const interval = setInterval(() => {
+        const now = Date.now();
+        const elapsed = now - startTime;
+        const remaining = Math.max(0, durationMs - elapsed);
+        const progressPercent = Math.min(100, (elapsed / durationMs) * 100);
+        
+        setLocalTimeRemaining(Math.ceil(remaining / 1000)); // seconds
+        setLocalProgress(progressPercent);
+        
+        if (remaining <= 0) {
+          clearInterval(interval);
+          setSession({ ...session, status: 'completed' });
+        }
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [session, duration]);
+
+  // Use WebSocket data if available, otherwise use local countdown
+  const formattedTimeRemaining = wsTimeRemaining || formatTime(localTimeRemaining);
+  const progress = wsProgress || localProgress;
+
+  function formatTime(seconds: number): string {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
 
   useEffect(() => {
     if (code) {
@@ -566,15 +604,6 @@ export const MachineActivationPage: React.FC = () => {
               )}
             </div>
 
-            {/* 4. Chronometer (Countdown Preview) */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 text-center">
-              <p className="text-gray-600 text-sm mb-3">Cronômetro</p>
-              <div className="text-gray-400 text-7xl font-bold tracking-wider mb-2">
-                {String(Math.floor(duration)).padStart(2, '0')}:00
-              </div>
-              <p className="text-gray-500 text-sm">Pronto para iniciar</p>
-            </div>
-
             {/* Payment Method */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
               <PaymentMethodSelector
@@ -652,9 +681,17 @@ export const MachineActivationPage: React.FC = () => {
         {/* Machine Not Available */}
         {machine && !availability?.available && user && (
           <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 rounded-full mb-4">
-              <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
+              availability?.status === 'offline' ? 'bg-red-100' : 'bg-yellow-100'
+            }`}>
+              <svg className={`w-8 h-8 ${
+                availability?.status === 'offline' ? 'text-red-600' : 'text-yellow-600'
+              }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {availability?.status === 'offline' ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                )}
               </svg>
             </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">
@@ -662,18 +699,25 @@ export const MachineActivationPage: React.FC = () => {
             </h3>
             <p className="text-gray-600 mb-4">
               {!availability?.withinOperatingHours && 'Fora do horário de funcionamento'}
-              {availability?.status === 'maintenance' && 'Em manutenção'}
-              {availability?.status === 'offline' && 'Offline'}
-              {availability?.status === 'in_use' && 'Em uso'}
+              {availability?.status === 'maintenance' && 'Este aspirador está em manutenção'}
+              {availability?.status === 'offline' && 'Este aspirador está desligado ou sem conexão'}
+              {availability?.status === 'in_use' && 'Este aspirador está sendo usado no momento'}
             </p>
-            {machine.operatingHours && (
+            {availability?.status === 'offline' && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-red-800">
+                  <strong>Aspirador Offline:</strong> O equipamento está desligado ou sem conexão com a internet. Por favor, tente outro aspirador ou aguarde até que este volte a ficar online.
+                </p>
+              </div>
+            )}
+            {machine.operatingHours && !availability?.withinOperatingHours && (
               <p className="text-sm text-gray-500 mb-6">
-                Horário: {machine.operatingHours.start} - {machine.operatingHours.end}
+                Horário de funcionamento: {machine.operatingHours.start} - {machine.operatingHours.end}
               </p>
             )}
             <Link 
               to="/" 
-              className="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all"
+              className="inline-block bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg"
             >
               Voltar ao Início
             </Link>
