@@ -146,8 +146,8 @@ sudo apt-get install -y git
 
 ```bash
 cd ~
-git clone https://github.com/YOUR_USERNAME/UpCarAspiradores.git
-cd UpCarAspiradores
+git clone https://github.com/Benites031407/UpCarSistema.git
+cd UpCarSistema
 ```
 
 ### 4.2 Install Dependencies

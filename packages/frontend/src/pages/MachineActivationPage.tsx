@@ -32,7 +32,8 @@ interface Availability {
 export const MachineActivationPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [machine, setMachine] = useState<Machine | null>(null);
   const [availability, setAvailability] = useState<Availability | null>(null);
@@ -218,26 +219,214 @@ export const MachineActivationPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white">
+      {/* Sidebar Overlay */}
+      {sidebarOpen && user && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      {user && (
+        <aside className={`
+          fixed top-0 left-0 h-full w-80 bg-white shadow-2xl z-50
+          transform transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}>
+          <div className="flex flex-col h-full">
+            {/* Sidebar Header */}
+            <div className="bg-gradient-to-r from-orange-600 to-orange-500 p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                    <span className="text-orange-600 font-bold text-xl">{user.name?.charAt(0).toUpperCase()}</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold text-lg">{user.name?.split(' ')[0]}</h3>
+                    <p className="text-orange-100 text-sm">{user.email}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="text-white hover:bg-orange-700 p-2 rounded-lg transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-3">
+                <p className="text-orange-100 text-xs mb-1">Saldo Disponível</p>
+                <p className="text-white text-2xl font-bold">{formatCurrency(user.accountBalance || 0)}</p>
+              </div>
+            </div>
+
+            {/* Menu Items */}
+            <nav className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    navigate('/account');
+                    setSidebarOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <span className="font-medium">Meu Saldo</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    navigate('/account');
+                    setSidebarOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span className="font-medium">Adicionar Crédito</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    navigate('/account');
+                    setSidebarOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium">Histórico</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    navigate('/account');
+                    setSidebarOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="font-medium">Configurações da Conta</span>
+                </button>
+
+                <div className="border-t border-gray-200 my-4"></div>
+
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  <span className="font-medium">Suporte</span>
+                </button>
+
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span className="font-medium">Termos e Condições</span>
+                </button>
+
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span className="font-medium">Política de Privacidade</span>
+                </button>
+
+                {user.role === 'admin' && (
+                  <>
+                    <div className="border-t border-gray-200 my-4"></div>
+                    <button
+                      onClick={() => {
+                        navigate('/admin');
+                        setSidebarOpen(false);
+                      }}
+                      className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                    >
+                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span className="font-medium">Painel Admin</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </nav>
+
+            {/* Logout Button */}
+            <div className="p-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  logout();
+                  setSidebarOpen(false);
+                }}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                <span>Sair</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+      )}
+
       {/* Header */}
-      <header className="bg-white/95 backdrop-blur-sm shadow-lg sticky top-0 z-10">
+      <header className="bg-gradient-to-r from-orange-600 to-orange-500 shadow-lg sticky top-0 z-30">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <Link to="/" className="text-orange-600 hover:text-orange-700 transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </Link>
+            {user ? (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 hover:bg-orange-700 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            ) : (
+              <Link to="/" className="p-2 hover:bg-orange-700 rounded-lg transition-colors">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </Link>
+            )}
             
-            <img 
-              src="/assets/upcar-logo.png" 
-              alt="UpCar" 
-              className="h-10 w-auto"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-              }}
-            />
+            <div className="flex items-center">
+              <img 
+                src="/assets/upcar-logo-preto.png" 
+                alt="UpCar Aspiradores" 
+                className="h-12 w-auto"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const parent = e.currentTarget.parentElement;
+                  if (parent) {
+                    parent.innerHTML = '<div class="text-white text-center"><h1 class="text-xl font-bold">UpCar</h1><p class="text-xs text-orange-100">Aspiradores</p></div>';
+                  }
+                }}
+              />
+            </div>
             
-            <div className="w-6"></div>
+            <div className="w-10"></div>
           </div>
         </div>
       </header>
@@ -267,7 +456,7 @@ export const MachineActivationPage: React.FC = () => {
               </div>
             )}
 
-            {/* Time Selection */}
+            {/* 1. Time Selection */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">
                 Selecione o Tempo
@@ -328,14 +517,14 @@ export const MachineActivationPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Price Display - Large and Prominent */}
+            {/* 2. Vacuuming Price */}
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-2xl p-8 text-center">
               <p className="text-orange-100 text-sm font-medium mb-2">Preço da Aspiração</p>
               <div className="text-white text-6xl font-bold mb-2">{formatCurrency(duration)}</div>
               <p className="text-orange-100 text-sm">{duration} minutos de uso</p>
             </div>
 
-            {/* Account Credit Display */}
+            {/* 3. Account Credits */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -345,7 +534,7 @@ export const MachineActivationPage: React.FC = () => {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Seu Crédito</p>
+                    <p className="text-sm text-gray-600">Crédito da Conta</p>
                     <p className="text-2xl font-bold text-gray-900">{formatCurrency(user?.accountBalance || 0)}</p>
                   </div>
                 </div>
@@ -377,9 +566,9 @@ export const MachineActivationPage: React.FC = () => {
               )}
             </div>
 
-            {/* Countdown Preview (before starting) */}
+            {/* 4. Chronometer (Countdown Preview) */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 text-center">
-              <p className="text-gray-600 text-sm mb-3">Tempo de aspiração</p>
+              <p className="text-gray-600 text-sm mb-3">Cronômetro</p>
               <div className="text-gray-400 text-7xl font-bold tracking-wider mb-2">
                 {String(Math.floor(duration)).padStart(2, '0')}:00
               </div>
@@ -395,7 +584,7 @@ export const MachineActivationPage: React.FC = () => {
               />
             </div>
 
-            {/* Start Button - Large and Prominent */}
+            {/* 5. Initiate Button */}
             <button
               onClick={handleActivation}
               disabled={processing || (user && user.accountBalance < duration && paymentMethod === 'balance')}

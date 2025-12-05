@@ -5,13 +5,16 @@ const logger = createLogger('relay-controller')
 export class RelayController {
   private isRelayActive = false
   private activeTimeout: NodeJS.Timeout | null = null
-  private relayPin: number
-  private gpio: any = null
+  private relayPin1: number
+  private relayPin2: number
+  private gpio1: any = null
+  private gpio2: any = null
   private maxDurationMs: number
   private activationStartTime: Date | null = null
 
   constructor() {
-    this.relayPin = parseInt(process.env.RELAY_PIN || '18')
+    this.relayPin1 = parseInt(process.env.RELAY_PIN || '18')
+    this.relayPin2 = parseInt(process.env.RELAY_PIN_2 || '23')
     this.maxDurationMs = parseInt(process.env.MAX_ACTIVATION_DURATION_MS || '1800000') // 30 minutes default
     this.initializeGPIO()
   }
@@ -20,10 +23,11 @@ export class RelayController {
     try {
       // Try to import pigpio, but handle gracefully if not available (e.g., on Windows)
       const pigpio = await import('pigpio') as any
-      this.gpio = new pigpio.Gpio(this.relayPin, { mode: pigpio.Gpio.OUTPUT })
-      logger.info(`Relay controller initialized on GPIO pin ${this.relayPin}`)
+      this.gpio1 = new pigpio.Gpio(this.relayPin1, { mode: pigpio.Gpio.OUTPUT })
+      this.gpio2 = new pigpio.Gpio(this.relayPin2, { mode: pigpio.Gpio.OUTPUT })
+      logger.info(`Relay controller initialized on GPIO pins ${this.relayPin1} and ${this.relayPin2}`)
     } catch (error) {
-      logger.info(`Relay controller initialized in simulation mode (pin ${this.relayPin}) - pigpio not available`)
+      logger.info(`Relay controller initialized in simulation mode (pins ${this.relayPin1}, ${this.relayPin2}) - pigpio not available`)
     }
   }
 
@@ -39,15 +43,16 @@ export class RelayController {
       throw new Error(`Invalid activation duration: ${durationMs}ms`)
     }
 
-    logger.info(`Activating relay for ${durationMs}ms (${Math.round(durationMs / 60000)} minutes)`)
+    logger.info(`Activating both relays for ${durationMs}ms (${Math.round(durationMs / 60000)} minutes)`)
     
     try {
-      // Control GPIO pin if available, otherwise simulate
-      if (this.gpio) {
-        this.gpio.digitalWrite(1) // Turn on relay
-        logger.info(`GPIO pin ${this.relayPin} set to HIGH`)
+      // Control GPIO pins if available, otherwise simulate
+      if (this.gpio1 && this.gpio2) {
+        this.gpio1.digitalWrite(1) // Turn on relay 1
+        this.gpio2.digitalWrite(1) // Turn on relay 2
+        logger.info(`GPIO pins ${this.relayPin1} and ${this.relayPin2} set to HIGH`)
       } else {
-        logger.info(`Simulated relay activation on pin ${this.relayPin}`)
+        logger.info(`Simulated relay activation on pins ${this.relayPin1} and ${this.relayPin2}`)
       }
       
       this.isRelayActive = true
@@ -86,12 +91,13 @@ export class RelayController {
         this.activeTimeout = null
       }
       
-      // Control GPIO pin if available
-      if (this.gpio) {
-        this.gpio.digitalWrite(0) // Turn off relay
-        logger.info(`GPIO pin ${this.relayPin} set to LOW`)
+      // Control GPIO pins if available
+      if (this.gpio1 && this.gpio2) {
+        this.gpio1.digitalWrite(0) // Turn off relay 1
+        this.gpio2.digitalWrite(0) // Turn off relay 2
+        logger.info(`GPIO pins ${this.relayPin1} and ${this.relayPin2} set to LOW`)
       } else {
-        logger.info(`Simulated relay deactivation on pin ${this.relayPin}`)
+        logger.info(`Simulated relay deactivation on pins ${this.relayPin1} and ${this.relayPin2}`)
       }
       
       this.isRelayActive = false
@@ -117,7 +123,8 @@ export class RelayController {
     isActive: boolean
     activationStartTime: Date | null
     activeDurationMs: number
-    pin: number
+    pin1: number
+    pin2: number
   } {
     const activeDurationMs = this.activationStartTime 
       ? Date.now() - this.activationStartTime.getTime() 
@@ -127,7 +134,8 @@ export class RelayController {
       isActive: this.isRelayActive,
       activationStartTime: this.activationStartTime,
       activeDurationMs,
-      pin: this.relayPin
+      pin1: this.relayPin1,
+      pin2: this.relayPin2
     }
   }
 
@@ -142,8 +150,9 @@ export class RelayController {
         this.activeTimeout = null
       }
       
-      if (this.gpio) {
-        this.gpio.digitalWrite(0)
+      if (this.gpio1 && this.gpio2) {
+        this.gpio1.digitalWrite(0)
+        this.gpio2.digitalWrite(0)
       }
       
       this.isRelayActive = false
