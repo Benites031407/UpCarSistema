@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
@@ -11,8 +12,15 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AccountPage } from './pages/AccountPage';
 import { AuthCallbackPage } from './pages/AuthCallbackPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { TermsAndConditionsPage } from './pages/TermsAndConditionsPage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
+import { AddCreditPage } from './pages/AddCreditPage';
+import { HistoryPage } from './pages/HistoryPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { SubscriptionPage } from './pages/SubscriptionPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
+import { SplashScreen } from './components/SplashScreen';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,10 +32,26 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  // Check if splash screen has been shown in this session
+  useEffect(() => {
+    const splashShown = sessionStorage.getItem('splashShown');
+    if (splashShown) {
+      setShowSplash(false);
+    }
+  }, []);
+
+  const handleSplashComplete = () => {
+    sessionStorage.setItem('splashShown', 'true');
+    setShowSplash(false);
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <WebSocketProvider>
+          {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
           <Router>
             <div className="min-h-screen bg-gray-50">
               <Routes>
@@ -38,11 +62,45 @@ function App() {
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/auth/callback" element={<AuthCallbackPage />} />
                 <Route path="/machine/:code" element={<MachineActivationPage />} />
+                <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
                 <Route 
                   path="/account" 
                   element={
                     <ProtectedRoute>
                       <AccountPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/add-credit" 
+                  element={
+                    <ProtectedRoute>
+                      <AddCreditPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/history" 
+                  element={
+                    <ProtectedRoute>
+                      <HistoryPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/settings" 
+                  element={
+                    <ProtectedRoute>
+                      <SettingsPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/subscription" 
+                  element={
+                    <ProtectedRoute>
+                      <SubscriptionPage />
                     </ProtectedRoute>
                   } 
                 />

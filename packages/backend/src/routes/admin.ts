@@ -9,6 +9,8 @@ import { PostgresMaintenanceLogRepository } from '../repositories/maintenanceLog
 import { createLogger } from '../utils/logger.js';
 import { auditOperations, auditMiddleware, AuditEventType } from '../middleware/auditLog.js';
 import { requireRecentAuth } from '../auth/sessionSecurity.js';
+import { webSocketService } from '@/services/websocketService.js';
+import { webSocketService } from '@/services/websocketService.js';
 
 const router = express.Router();
 const logger = createLogger('admin-routes');
@@ -152,11 +154,29 @@ router.get('/sessions/active', async (_req: express.Request, res: express.Respon
 /**
  * GET /api/admin/machines
  * Get all machines for registry management
+ * Optional query param: ?code=123456 to filter by machine code
  */
-router.get('/machines', async (_req: express.Request, res: express.Response) => {
+router.get('/machines', [
+  query('code').optional().isString().matches(/^[0-9]{1,6}$/),
+], async (req: express.Request, res: express.Response) => {
   try {
-    const machines = await machineRepository.findAll();
-    res.json(machines);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      return;
+    }
+
+    const { code } = req.query;
+
+    if (code) {
+      // Filter by specific code
+      const machine = await machineRepository.findByCode(code as string);
+      res.json(machine ? [machine] : []);
+    } else {
+      // Return all machines
+      const machines = await machineRepository.findAll();
+      res.json(machines);
+    }
   } catch (error) {
     logger.error('Error fetching machines:', error);
     res.status(500).json({ error: 'Failed to fetch machines' });
@@ -168,7 +188,7 @@ router.get('/machines', async (_req: express.Request, res: express.Response) => 
  * Register a new machine
  */
 router.post('/machines', [
-  body('code').isString().isLength({ min: 1, max: 50 }),
+  body('code').isString().matches(/^[0-9]{1,6}$/).withMessage('Code must be 1-6 digits only'),
   body('location').isString().isLength({ min: 1, max: 255 }),
   body('controllerId').isString().isLength({ min: 1, max: 100 }),
   body('operatingHours.start').matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
@@ -411,11 +431,160 @@ router.put('/machines/:id', [
       return;
     }
 
+    // Validate status change to "online"
+    if (updateData.status === 'online') {
+      // Check if machine has recent heartbeat (within 90 seconds)
+      const now = new Date();
+      const heartbeatThreshold = 90 * 1000; // 90 seconds
+      
+      if (!machine.lastHeartbeat) {
+        res.status(400).json({ 
+          error: 'Não é possível ligar a máquina',
+          reason: 'A máquina nunca enviou um sinal de conexão. Certifique-se de que o Raspberry Pi está conectado e funcionando.',
+          suggestion: 'Verifique se o controlador IoT está em execução no Raspberry Pi'
+        });
+        return;
+      }
+
+      const timeSinceHeartbeat = now.getTime() - machine.lastHeartbeat.getTime();
+      
+      if (timeSinceHeartbeat > heartbeatThreshold) {
+        const totalSeconds = Math.round(timeSinceHeartbeat / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const timeDisplay = minutes > 0 
+          ? `${minutes} minuto${minutes !== 1 ? 's' : ''} e ${seconds} segundo${seconds !== 1 ? 's' : ''}`
+          : `${seconds} segundo${seconds !== 1 ? 's' : ''}`;
+        
+        res.status(400).json({ 
+          error: 'Não é possível ligar a máquina',
+          reason: `A máquina não enviou sinal de conexão há ${timeDisplay}. O Raspberry Pi pode estar desconectado ou desligado.`,
+          lastHeartbeat: machine.lastHeartbeat.toISOString(),
+          suggestion: 'Certifique-se de que o Raspberry Pi está ligado e conectado à rede'
+        });
+        return;
+      }
+
+      logger.info(`Machine ${machine.code} status change to online approved - heartbeat ${Math.round(timeSinceHeartbeat / 1000)}s ago`);
+    }
+
     const updatedMachine = await machineRepository.update(id, updateData);
+    
+    // Broadcast update
+    webSocketService.broadcastMachineUpdate(updatedMachine!);
+    
     res.json(updatedMachine);
   } catch (error) {
     logger.error('Error updating machine:', error);
     res.status(500).json({ error: 'Failed to update machine' });
+  }
+});
+
+/**
+ * PATCH /api/admin/machines/:id/maintenance-override
+ * Toggle maintenance override for a machine
+ */
+router.patch('/machines/:id/maintenance-override', [
+  param('id').isUUID(),
+  body('override').isBoolean(),
+  body('reason').optional().isString().isLength({ min: 1, max: 500 }),
+], async (req: express.Request, res: express.Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      return;
+    }
+
+    const { id } = req.params;
+    const { override, reason } = req.body;
+    const adminEmail = (req as any).user?.email || 'unknown';
+
+    const machine = await machineRepository.findById(id);
+    if (!machine) {
+      res.status(404).json({ error: 'Machine not found' });
+      return;
+    }
+
+    const updateData: any = {
+      maintenanceOverride: override,
+      maintenanceOverrideAt: override ? new Date() : null,
+      maintenanceOverrideBy: override ? adminEmail : null,
+      maintenanceOverrideReason: override ? reason : null,
+    };
+
+    // If enabling override and machine is in maintenance, set it back to online
+    if (override && machine.status === 'maintenance') {
+      updateData.status = 'online';
+    }
+
+    const updatedMachine = await machineRepository.update(id, updateData);
+
+    // Broadcast update
+    webSocketService.broadcastMachineUpdate(updatedMachine!);
+
+    logger.info(`Maintenance override ${override ? 'enabled' : 'disabled'} for machine ${machine.code} by ${adminEmail}`);
+
+    res.json({
+      success: true,
+      machine: updatedMachine,
+      message: override 
+        ? 'Maintenance override enabled - machine can operate with warning' 
+        : 'Maintenance override disabled'
+    });
+  } catch (error) {
+    logger.error('Error toggling maintenance override:', error);
+    res.status(500).json({ error: 'Failed to toggle maintenance override' });
+  }
+});
+
+/**
+ * PATCH /api/admin/machines/:id/reset-maintenance
+ * Reset maintenance counter and clear override
+ */
+router.patch('/machines/:id/reset-maintenance', [
+  param('id').isUUID(),
+], async (req: express.Request, res: express.Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      return;
+    }
+
+    const { id } = req.params;
+    const adminEmail = (req as any).user?.email || 'unknown';
+
+    const machine = await machineRepository.findById(id);
+    if (!machine) {
+      res.status(404).json({ error: 'Machine not found' });
+      return;
+    }
+
+    // Reset counter and clear override
+    const updatedMachine = await machineRepository.update(id, {
+      currentOperatingHours: 0,
+      status: 'online',
+      maintenanceOverride: false,
+      maintenanceOverrideReason: null,
+      maintenanceOverrideAt: null,
+      maintenanceOverrideBy: null,
+      lastMaintenanceDate: new Date(),
+    });
+
+    // Broadcast update
+    webSocketService.broadcastMachineUpdate(updatedMachine!);
+
+    logger.info(`Maintenance reset for machine ${machine.code} by ${adminEmail}`);
+
+    res.json({
+      success: true,
+      machine: updatedMachine,
+      message: 'Maintenance counter reset and override cleared'
+    });
+  } catch (error) {
+    logger.error('Error resetting maintenance:', error);
+    res.status(500).json({ error: 'Failed to reset maintenance' });
   }
 });
 
@@ -930,11 +1099,12 @@ router.get('/reports/export',
 
     try {
       const { type, startDate, endDate, machineId } = req.query;
+      const { PuppeteerPDFGenerator } = await import('../services/pdfGeneratorPuppeteer.js');
       const { PDFGenerator } = await import('../services/pdfGenerator.js');
       const { ReportsRepository } = await import('../repositories/reports.js');
 
       if (type === 'consolidated') {
-        // Generate consolidated report
+        // Generate consolidated report (still using PDFKit for now)
         const data = await ReportsRepository.getConsolidatedReportData({
           startDate: startDate as string,
           endDate: endDate as string,
@@ -947,13 +1117,13 @@ router.get('/reports/export',
         
         pdfStream.pipe(res);
       } else if (machineId) {
-        // Generate individual machine report
+        // Generate individual machine report using Puppeteer
         const data = await ReportsRepository.getMachineReportData(machineId as string, {
           startDate: startDate as string,
           endDate: endDate as string,
         });
 
-        const pdfStream = PDFGenerator.generateMachineReport(data);
+        const pdfStream = await PuppeteerPDFGenerator.generateMachineReportStream(data);
         
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=relatorio-${data.machine.code}-${startDate}-${endDate}.pdf`);
@@ -992,7 +1162,7 @@ router.get('/reports/export-all-machines',
 
     try {
       const { startDate, endDate } = req.query;
-      const { PDFGenerator } = await import('../services/pdfGenerator.js');
+      const { PuppeteerPDFGenerator } = await import('../services/pdfGeneratorPuppeteer.js');
       const { ReportsRepository } = await import('../repositories/reports.js');
       const archiver = (await import('archiver')).default;
 
@@ -1011,7 +1181,7 @@ router.get('/reports/export-all-machines',
             endDate: endDate as string,
           });
 
-          const pdfStream = PDFGenerator.generateMachineReport(data);
+          const pdfStream = await PuppeteerPDFGenerator.generateMachineReportStream(data);
           archive.append(pdfStream, { name: `relatorio-${data.machine.code}.pdf` });
         } catch (error) {
           logger.error(`Error generating report for machine ${machineId}:`, error);

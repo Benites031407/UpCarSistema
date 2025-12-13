@@ -17,11 +17,17 @@ export class PostgresMachineRepository implements MachineRepository {
         end: row.operating_hours_end
       },
       maintenanceInterval: row.maintenance_interval,
-      currentOperatingHours: row.current_operating_minutes || row.current_operating_hours || 0,
+      currentOperatingHours: (row.current_operating_minutes || row.current_operating_hours || 0) / 60, // Convert minutes to hours
       pricePerMinute: row.price_per_minute ? parseFloat(row.price_per_minute) : 1.00,
       maxDurationMinutes: row.max_duration_minutes || 30,
       powerConsumptionWatts: row.power_consumption_watts || 1200,
       kwhRate: row.kwh_rate ? parseFloat(row.kwh_rate) : 0.65,
+      locationOwnerQuota: row.location_owner_quota ? parseFloat(row.location_owner_quota) : 50.00,
+      operationalCostQuota: row.operational_cost_quota ? parseFloat(row.operational_cost_quota) : 10.00,
+      maintenanceOverride: row.maintenance_override || false,
+      maintenanceOverrideReason: row.maintenance_override_reason,
+      maintenanceOverrideAt: row.maintenance_override_at,
+      maintenanceOverrideBy: row.maintenance_override_by,
       lastCleaningDate: row.last_cleaning_date,
       lastMaintenanceDate: row.last_maintenance_date,
       temperature: row.temperature ? parseFloat(row.temperature) : undefined,
@@ -80,8 +86,8 @@ export class PostgresMachineRepository implements MachineRepository {
     const executor = client || db;
     
     const result = await executor.query(
-      `INSERT INTO machines (code, qr_code, location, controller_id, operating_hours_start, operating_hours_end, maintenance_interval, price_per_minute, max_duration_minutes, power_consumption_watts, kwh_rate)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO machines (code, qr_code, location, controller_id, operating_hours_start, operating_hours_end, maintenance_interval, price_per_minute, max_duration_minutes, power_consumption_watts, kwh_rate, location_owner_quota)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         data.code,
@@ -94,7 +100,8 @@ export class PostgresMachineRepository implements MachineRepository {
         data.pricePerMinute || 1.00,
         data.maxDurationMinutes || 30,
         data.powerConsumptionWatts || 1200,
-        data.kwhRate || 0.65
+        data.kwhRate || 0.65,
+        data.locationOwnerQuota || 50.00
       ]
     );
     
@@ -165,6 +172,30 @@ export class PostgresMachineRepository implements MachineRepository {
     if (data.lastMaintenanceDate !== undefined) {
       fields.push(`last_maintenance_date = $${paramCount++}`);
       values.push(data.lastMaintenanceDate);
+    }
+    if (data.locationOwnerQuota !== undefined) {
+      fields.push(`location_owner_quota = $${paramCount++}`);
+      values.push(data.locationOwnerQuota);
+    }
+    if (data.operationalCostQuota !== undefined) {
+      fields.push(`operational_cost_quota = $${paramCount++}`);
+      values.push(data.operationalCostQuota);
+    }
+    if (data.maintenanceOverride !== undefined) {
+      fields.push(`maintenance_override = $${paramCount++}`);
+      values.push(data.maintenanceOverride);
+    }
+    if (data.maintenanceOverrideReason !== undefined) {
+      fields.push(`maintenance_override_reason = $${paramCount++}`);
+      values.push(data.maintenanceOverrideReason);
+    }
+    if (data.maintenanceOverrideAt !== undefined) {
+      fields.push(`maintenance_override_at = $${paramCount++}`);
+      values.push(data.maintenanceOverrideAt);
+    }
+    if (data.maintenanceOverrideBy !== undefined) {
+      fields.push(`maintenance_override_by = $${paramCount++}`);
+      values.push(data.maintenanceOverrideBy);
     }
 
     if (fields.length === 0) {

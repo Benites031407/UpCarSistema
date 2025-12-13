@@ -1,7 +1,6 @@
 import mqtt from 'mqtt'
 import { createLogger } from '../utils/logger.js'
 import type { RelayController } from '../hardware/relay.js'
-import { TemperatureSensor } from '../hardware/temperatureSensor.js'
 
 const logger = createLogger('mqtt-client')
 
@@ -10,9 +9,7 @@ export class MQTTClient {
   private controllerId: string
   private machineId: string
   private relayController: RelayController
-  private temperatureSensor: TemperatureSensor
   private heartbeatInterval: NodeJS.Timeout | null = null
-  private temperatureInterval: NodeJS.Timeout | null = null
   private isConnected = false
   private reconnectAttempts = 0
   private maxReconnectAttempts = 10
@@ -22,7 +19,6 @@ export class MQTTClient {
     this.controllerId = controllerId
     this.machineId = machineId
     this.relayController = relayController
-    this.temperatureSensor = new TemperatureSensor()
   }
 
   async connect(): Promise<void> {
@@ -49,7 +45,6 @@ export class MQTTClient {
         this.reconnectAttempts = 0
         this.subscribeToTopics()
         this.startHeartbeat()
-        this.startTemperatureMonitoring()
         resolve()
       })
 
@@ -144,22 +139,6 @@ export class MQTTClient {
       return
     }
 
-    // Check temperature safety before activation
-    try {
-      const tempReading = await this.temperatureSensor.readTemperature()
-      const safetyStatus = this.temperatureSensor.getTemperatureSafetyStatus(tempReading.temperature)
-      
-      if (!safetyStatus.isSafe) {
-        logger.error(`Cannot activate machine: ${safetyStatus.message}`)
-        await this.publishError('Activation failed', new Error(`Temperature unsafe: ${safetyStatus.message}`))
-        return
-      }
-    } catch (error) {
-      logger.error('Temperature check failed before activation:', error)
-      await this.publishError('Activation failed', new Error('Temperature sensor error'))
-      return
-    }
-
     logger.info(`Activating machine for ${duration} minutes (session: ${sessionId})`)
     
     try {
@@ -213,16 +192,11 @@ export class MQTTClient {
     if (!this.client || !this.isConnected) return
 
     try {
-      // Get current temperature reading
-      const tempReading = await this.temperatureSensor.readTemperature()
-      
       const statusData = {
         controllerId: this.controllerId,
         machineId: this.machineId,
         status: status || (this.relayController.isActive() ? 'active' : 'inactive'),
         timestamp: new Date().toISOString(),
-        temperature: tempReading.temperature,
-        humidity: tempReading.humidity,
         sessionId: this.currentSessionId,
         ...extra
       }
@@ -257,14 +231,10 @@ export class MQTTClient {
     if (!this.client || !this.isConnected) return
 
     try {
-      const tempReading = await this.temperatureSensor.readTemperature()
-      
       const heartbeatData = {
         controllerId: this.controllerId,
         machineId: this.machineId,
         timestamp: new Date().toISOString(),
-        temperature: tempReading.temperature,
-        humidity: tempReading.humidity,
         status: this.relayController.isActive() ? 'active' : 'inactive',
         sessionId: this.currentSessionId
       }
@@ -283,91 +253,7 @@ export class MQTTClient {
     }
   }
 
-  private startTemperatureMonitoring(): void {
-    const interval = parseInt(process.env.TEMPERATURE_INTERVAL || '30000') // 30 seconds
-    
-    this.temperatureInterval = setInterval(async () => {
-      if (this.isConnected) {
-        await this.checkTemperature()
-      }
-    }, interval)
-    
-    logger.info(`Temperature monitoring started with ${interval}ms interval`)
-  }
 
-  private async checkTemperature(): Promise<void> {
-    try {
-      const reading = await this.temperatureSensor.readTemperature()
-      const safetyStatus = this.temperatureSensor.getTemperatureSafetyStatus(reading.temperature)
-      
-      // Handle critical temperature - immediate emergency stop
-      if (safetyStatus.isCritical) {
-        logger.error(`CRITICAL TEMPERATURE: ${reading.temperature}°C - Emergency stop initiated`)
-        
-        if (this.relayController.isActive()) {
-          this.relayController.emergencyStop()
-          await this.publishStatus('inactive', { 
-            reason: 'critical_temperature_emergency_stop',
-            temperature: reading.temperature,
-            sessionId: this.currentSessionId
-          })
-          this.currentSessionId = null
-        }
-        
-        await this.publishTemperatureAlert(reading, 'critical')
-        return
-      }
-      
-      // Handle unsafe temperature - controlled shutdown
-      if (!safetyStatus.isSafe) {
-        logger.warn(safetyStatus.message)
-        
-        if (this.relayController.isActive()) {
-          logger.warn('Deactivating machine due to unsafe temperature')
-          this.relayController.deactivate()
-          await this.publishStatus('inactive', { 
-            reason: 'temperature_safety',
-            temperature: reading.temperature,
-            sessionId: this.currentSessionId
-          })
-          this.currentSessionId = null
-        }
-        
-        await this.publishTemperatureAlert(reading, 'warning')
-      }
-    } catch (error) {
-      logger.error('Error during temperature check:', error)
-      await this.publishError('Temperature monitoring failed', error)
-    }
-  }
-
-  private async publishTemperatureAlert(reading: any, severity: 'warning' | 'critical' = 'warning'): Promise<void> {
-    if (!this.client || !this.isConnected) return
-
-    const safetyStatus = this.temperatureSensor.getTemperatureSafetyStatus(reading.temperature)
-
-    const alertData = {
-      controllerId: this.controllerId,
-      machineId: this.machineId,
-      type: 'temperature_alert',
-      severity,
-      temperature: reading.temperature,
-      humidity: reading.humidity,
-      timestamp: new Date().toISOString(),
-      message: safetyStatus.message,
-      status: safetyStatus.status
-    }
-
-    const topic = `machines/${this.machineId}/alerts`
-    
-    this.client.publish(topic, JSON.stringify(alertData), { qos: 1 }, (error) => {
-      if (error) {
-        logger.error('Failed to publish temperature alert:', error)
-      } else {
-        logger.info(`Temperature alert published (${severity}): ${safetyStatus.message}`)
-      }
-    })
-  }
 
   private publishError(message: string, error: any): void {
     if (!this.client || !this.isConnected) return
@@ -395,11 +281,6 @@ export class MQTTClient {
       clearInterval(this.heartbeatInterval)
       this.heartbeatInterval = null
     }
-    
-    if (this.temperatureInterval) {
-      clearInterval(this.temperatureInterval)
-      this.temperatureInterval = null
-    }
   }
 
   async disconnect(): Promise<void> {
@@ -417,7 +298,6 @@ export class MQTTClient {
     
     // Cleanup hardware resources
     this.relayController.cleanup()
-    this.temperatureSensor.cleanup()
   }
 
   /**
@@ -430,15 +310,11 @@ export class MQTTClient {
   /**
    * Get current machine status
    */
-  async getMachineStatus(): Promise<any> {
-    const tempReading = await this.temperatureSensor.readTemperature()
-    
+  getMachineStatus(): any {
     return {
       controllerId: this.controllerId,
       machineId: this.machineId,
       status: this.relayController.isActive() ? 'active' : 'inactive',
-      temperature: tempReading.temperature,
-      humidity: tempReading.humidity,
       sessionId: this.currentSessionId,
       isConnected: this.isConnected,
       timestamp: new Date().toISOString()

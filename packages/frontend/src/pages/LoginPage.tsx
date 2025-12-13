@@ -56,7 +56,7 @@ export const LoginPage: React.FC = () => {
   // Show email/password form
   if (showEmailLogin) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-400 via-30% via-orange-300 via-60% to-orange-100 flex items-center justify-center px-4 py-8 relative overflow-hidden">
+      <div className="min-h-screen bg-orange-500 flex items-center justify-center px-4 py-8 relative overflow-hidden">
         {/* Animated background circles */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
@@ -153,7 +153,7 @@ export const LoginPage: React.FC = () => {
 
   // Show main login options (Google or Email)
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-400 via-30% via-orange-300 via-60% to-orange-100 flex items-center justify-center px-4 py-8 relative overflow-hidden">
+    <div className="min-h-screen bg-orange-500 flex items-center justify-center px-4 py-8 relative overflow-hidden">
       {/* Animated background circles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
@@ -231,15 +231,15 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* Terms */}
-        <p className="text-center text-gray-700 text-xs mb-6 animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.5s' }}>
+        <p className="text-center text-white text-xs mb-6 animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.5s' }}>
           Ao continuar, você aceita nossos{' '}
-          <a href="#" className="underline hover:text-gray-900 font-medium">Termos e Condições</a>
+          <a href="#" className="underline hover:text-white/80 font-medium">Termos e Condições</a>
           {' '}e a{' '}
-          <a href="#" className="underline hover:text-gray-900 font-medium">Política de Privacidade</a>
+          <a href="#" className="underline hover:text-white/80 font-medium">Política de Privacidade</a>
         </p>
 
         {/* Footer */}
-        <p className="text-center text-gray-600 text-xs uppercase tracking-wider animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.6s' }}>
+        <p className="text-center text-white text-xs uppercase tracking-wider animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.6s' }}>
           Desenvolvido por: Cube³ Tecnologia
         </p>
       </div>

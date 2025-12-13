@@ -127,10 +127,20 @@ npm --version   # Should show 9.x.x or higher
 ### 3.3 Install GPIO Dependencies
 
 ```bash
+# Install pigpio library (but don't enable the system service)
 sudo apt-get install -y pigpio python3-pigpio
-sudo systemctl enable pigpiod
-sudo systemctl start pigpiod
+
+# IMPORTANT: Disable the system pigpiod service
+# The npm pigpio package will manage its own daemon
+sudo systemctl stop pigpiod
+sudo systemctl disable pigpiod
 ```
+
+**Why disable pigpiod service?**
+- The npm `pigpio` package starts its own pigpio daemon internally
+- Having both the system service and npm daemon causes conflicts
+- You'll see "Can't lock /var/run/pigpio.pid" errors if both try to run
+- The npm package handles everything automatically when running as root
 
 ### 3.4 Install Git
 
@@ -252,8 +262,7 @@ sudo nano /etc/systemd/system/upcar-controller.service
 ```ini
 [Unit]
 Description=UpCar IoT Controller
-After=network.target pigpiod.service
-Requires=pigpiod.service
+After=network.target
 
 [Service]
 Type=simple
@@ -263,8 +272,6 @@ ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10
 Environment=NODE_ENV=production
-Environment=PIGPIO_ADDR=localhost
-Environment=PIGPIO_PORT=8888
 
 [Install]
 WantedBy=multi-user.target
@@ -273,6 +280,7 @@ WantedBy=multi-user.target
 **⚠️ IMPORTANT**: 
 - Replace `YOUR_USERNAME_HERE` with your actual username (e.g., `pedrobpf`)
 - The service runs as `root` to access GPIO pins
+- The service does NOT depend on pigpiod.service - the npm package manages GPIO internally
 - Logs are stored in systemd journal (view with `sudo journalctl -u upcar-controller -f`)
 
 ### 6.2 Enable and Start Service
@@ -387,18 +395,23 @@ mosquitto_sub -h 192.168.15.90 -p 1884 -t "test" -v
 ping 192.168.15.90
 ```
 
-### GPIO Permission Denied
+### GPIO Permission Denied or "Can't lock /var/run/pigpio.pid"
+
+This happens when the system pigpiod service conflicts with the npm pigpio package:
 
 ```bash
-# Add user to gpio group
-sudo usermod -a -G gpio pi
+# Stop and disable the system pigpiod service
+sudo systemctl stop pigpiod
+sudo systemctl disable pigpiod
 
-# Restart pigpiod
-sudo systemctl restart pigpiod
+# Restart your controller service
+sudo systemctl restart upcar-controller
 
-# Reboot
-sudo reboot
+# Check status
+sudo systemctl status upcar-controller
 ```
+
+The npm `pigpio` package manages its own daemon when running as root, so the system service is not needed.
 
 ### Temperature Sensor Not Working
 

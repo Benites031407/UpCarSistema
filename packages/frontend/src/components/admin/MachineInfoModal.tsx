@@ -221,8 +221,8 @@ export const MachineInfoModal: React.FC<MachineInfoModalProps> = ({
                     <p className="text-xs text-gray-500">Há {stats.maintenance.daysSinceLastCleaning} dias</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Horas de Operação</p>
-                    <p className="text-lg font-semibold text-gray-900">{stats.maintenance.currentOperatingHours}h</p>
+                    <p className="text-sm text-gray-600">Tempo Total de Uso</p>
+                    <p className="text-lg font-semibold text-gray-900">{stats.maintenance.currentOperatingHours.toFixed(1)}h</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Intervalo de Manutenção</p>

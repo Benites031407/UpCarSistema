@@ -119,9 +119,8 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <div className="font-bold text-gray-900 flex items-center">
-                    Usar Créditos da Conta
-                    <span className="ml-2 px-2 py-0.5 bg-green-500 text-white text-xs rounded-full">Recomendado</span>
+                  <div className="font-bold text-gray-900">
+                    Saldo da Conta
                   </div>
                   <div className="text-sm text-gray-600">
                     Saldo disponível: {formatCurrency(user?.accountBalance || 0)}
@@ -132,7 +131,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
                 <div className="font-bold text-green-600 text-lg">
                   {formatCurrency(amount)}
                 </div>
-                <div className="text-xs text-green-600 font-medium">✓ Instantâneo</div>
+                <div className="text-xs text-green-600 font-medium">Instantâneo</div>
               </div>
             </div>
           </button>
@@ -204,16 +203,12 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
               </div>
               <div>
                 <div className="font-bold text-gray-900">Pagamento PIX</div>
-                <div className="text-sm text-gray-600">
-                  Pagar valor total via PIX
-                </div>
               </div>
             </div>
             <div className="text-right">
               <div className="font-bold text-blue-600 text-lg">
                 {formatCurrency(amount)}
               </div>
-              <div className="text-xs text-gray-500">Instantâneo</div>
             </div>
           </div>
         </button>

@@ -75,6 +75,17 @@ export class MachineService {
 
     // Check if maintenance is required
     if (machine.currentOperatingHours >= machine.maintenanceInterval) {
+      // Check if maintenance override is active
+      if (machine.maintenanceOverride) {
+        logger.warn(`Machine ${machine.code} exceeds maintenance interval but override is active`);
+        return {
+          available: true,
+          machine,
+          maintenanceWarning: true,
+          reason: 'Machine requires maintenance but override is active'
+        };
+      }
+      
       // Automatically set to maintenance mode
       await this.setMaintenanceMode(machineId, 'Automatic maintenance required');
       

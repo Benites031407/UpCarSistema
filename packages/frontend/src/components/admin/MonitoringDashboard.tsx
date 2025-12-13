@@ -18,7 +18,6 @@ interface MachineStatus {
   code: string;
   location: string;
   status: 'online' | 'offline' | 'maintenance' | 'in_use';
-  temperature?: number;
   currentOperatingHours: number;
   lastHeartbeat?: string;
 }
@@ -268,21 +267,21 @@ export const MonitoringDashboard: React.FC = () => {
                 </div>
 
                 <div className="space-y-1 text-sm text-gray-600">
-                  {machine.temperature && (
-                    <div className="flex justify-between">
-                      <span>Temperatura:</span>
-                      <span>{machine.temperature}°C</span>
-                    </div>
-                  )}
                   <div className="flex justify-between">
-                    <span>Horas de Operação:</span>
-                    <span>{machine.currentOperatingHours}h</span>
+                    <span>Tempo Total de Uso:</span>
+                    <span className="font-semibold text-gray-900">{machine.currentOperatingHours.toFixed(1)}h</span>
                   </div>
                   {machine.lastHeartbeat && (
                     <div className="flex justify-between">
                       <span>Última Atualização:</span>
                       <span>
-                        {new Date(machine.lastHeartbeat).toLocaleTimeString()}
+                        {new Date(machine.lastHeartbeat).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
                       </span>
                     </div>
                   )}

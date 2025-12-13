@@ -32,6 +32,12 @@ export interface Machine {
   maxDurationMinutes: number; // maximum usage duration in minutes (1-120)
   powerConsumptionWatts: number; // power consumption in watts
   kwhRate: number; // cost per kWh in BRL
+  locationOwnerQuota: number; // percentage (0-100) of net revenue for location owner
+  operationalCostQuota: number; // percentage (0-100) of revenue for operational costs
+  maintenanceOverride: boolean; // allows operation despite exceeding maintenance interval
+  maintenanceOverrideReason?: string;
+  maintenanceOverrideAt?: Date;
+  maintenanceOverrideBy?: string;
   lastCleaningDate?: Date;
   lastMaintenanceDate?: Date;
   temperature?: number;
@@ -64,6 +70,8 @@ export interface UsageSession {
   startTime?: Date;
   endTime?: Date;
   createdAt: Date;
+  machineCode?: string; // Added for display purposes
+  machineLocation?: string; // Added for display purposes
 }
 
 export interface Transaction {
@@ -112,6 +120,7 @@ export interface CreateMachineInput {
   maxDurationMinutes?: number;
   powerConsumptionWatts?: number;
   kwhRate?: number;
+  locationOwnerQuota?: number;
 }
 
 export interface CreateMaintenanceLogInput {
@@ -174,6 +183,12 @@ export interface UpdateMachineInput {
   maxDurationMinutes?: number;
   powerConsumptionWatts?: number;
   kwhRate?: number;
+  locationOwnerQuota?: number;
+  operationalCostQuota?: number;
+  maintenanceOverride?: boolean;
+  maintenanceOverrideReason?: string;
+  maintenanceOverrideAt?: Date;
+  maintenanceOverrideBy?: string;
   lastCleaningDate?: Date;
   lastMaintenanceDate?: Date;
   temperature?: number;
@@ -184,6 +199,7 @@ export interface UpdateUsageSessionInput {
   status?: 'pending' | 'active' | 'completed' | 'failed';
   startTime?: Date;
   endTime?: Date;
+  paymentId?: string;
 }
 
 export interface UpdateTransactionInput {

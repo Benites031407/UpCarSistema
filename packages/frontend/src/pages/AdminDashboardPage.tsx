@@ -5,6 +5,7 @@ import { MachineRegistryComponent } from '../components/admin/MachineRegistryCom
 import { MonitoringDashboard } from '../components/admin/MonitoringDashboard';
 import { CustomerManagement } from '../components/admin/CustomerManagement';
 import { AnalyticsComponent } from '../components/admin/AnalyticsComponent';
+import { MaintenanceMode } from '../components/admin/MaintenanceMode';
 
 type TabType = 'monitoring' | 'machines' | 'customers' | 'analytics';
 
@@ -127,6 +128,11 @@ export const AdminDashboardPage: React.FC = () => {
             </button>
           ))}
         </nav>
+
+        {/* Maintenance Mode Button */}
+        <div className="px-4 pb-4">
+          <MaintenanceMode />
+        </div>
 
         {/* User Info & Logout */}
         <div className="p-4 border-t border-orange-400">

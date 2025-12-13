@@ -32,7 +32,7 @@ export const HomePage: React.FC = () => {
 
   // If user is logged in, show machine access page
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white">
+    <div className="min-h-screen bg-orange-500">
       {/* Sidebar Overlay */}
       {sidebarOpen && (
         <div 
@@ -80,20 +80,7 @@ export const HomePage: React.FC = () => {
             <div className="space-y-2">
               <button
                 onClick={() => {
-                  navigate('/account');
-                  setSidebarOpen(false);
-                }}
-                className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span className="font-medium">Meu Saldo</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  navigate('/account');
+                  navigate('/add-credit');
                   setSidebarOpen(false);
                 }}
                 className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
@@ -106,7 +93,7 @@ export const HomePage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  navigate('/account', { state: { tab: 'sessions' } });
+                  navigate('/history');
                   setSidebarOpen(false);
                 }}
                 className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
@@ -119,7 +106,7 @@ export const HomePage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  navigate('/account');
+                  navigate('/settings');
                   setSidebarOpen(false);
                 }}
                 className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
@@ -135,20 +122,35 @@ export const HomePage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  // TODO: Add support page
+                  navigate('/subscription');
                   setSidebarOpen(false);
                 }}
+                className="w-full flex items-center space-x-3 px-4 py-3 text-white bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 rounded-lg transition-colors shadow-md"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="font-medium">Assinatura Mensal</span>
+              </button>
+
+              <div className="border-t border-gray-200 my-4"></div>
+
+              <a
+                href="https://wa.me/5511948580070"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                onClick={() => setSidebarOpen(false)}
               >
                 <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
                 <span className="font-medium">Suporte</span>
-              </button>
+              </a>
 
               <button
                 onClick={() => {
-                  // TODO: Add terms page
+                  navigate('/terms-and-conditions');
                   setSidebarOpen(false);
                 }}
                 className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
@@ -161,7 +163,7 @@ export const HomePage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  // TODO: Add privacy page
+                  navigate('/privacy-policy');
                   setSidebarOpen(false);
                 }}
                 className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
@@ -249,16 +251,12 @@ export const HomePage: React.FC = () => {
         {/* Welcome Card */}
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-6">
           <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-100 rounded-full mb-4">
-              <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
-            </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Acessar Aspirador
+              Digite o código do Aspirador
             </h2>
             <p className="text-gray-600 text-sm">
-              Digite o código de 6 caracteres do aspirador
+              Digite o código de identificação do aspirador.<br />
+              O mesmo encontra-se acima do QR-Code escaneado.
             </p>
           </div>
 
@@ -288,74 +286,35 @@ export const HomePage: React.FC = () => {
               <input
                 id="machine-code"
                 type="text"
+                inputMode="numeric"
                 value={machineCode}
                 onChange={(e) => {
-                  const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                  if (value.length <= 6) {
-                    setMachineCode(value);
-                    setError('');
-                  }
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  setMachineCode(value);
+                  setError('');
                 }}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter' && machineCode.length === 6) {
+                  if (e.key === 'Enter' && machineCode.length >= 1) {
                     handleManualEntry();
                   }
                 }}
-                placeholder="ABC123"
-                className="block w-full px-6 py-4 border-2 border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-center text-2xl font-bold tracking-widest uppercase"
+                placeholder="123456"
+                className="block w-full px-6 py-4 border-2 border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-center text-2xl font-bold tracking-widest"
                 maxLength={6}
                 autoFocus
               />
               <p className="text-xs text-gray-500 text-center mt-2">
-                {machineCode.length}/6 caracteres
+                {machineCode.length > 0 ? `${machineCode.length} dígito${machineCode.length > 1 ? 's' : ''}` : 'Digite apenas números'}
               </p>
             </div>
             
             <button
               onClick={handleManualEntry}
-              disabled={machineCode.length !== 6}
+              disabled={machineCode.length === 0}
               className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg text-lg"
             >
-              {machineCode.length === 6 ? 'Acessar Aspirador →' : 'Digite o código completo'}
+              {machineCode.length > 0 ? 'Acessar Aspirador →' : 'Digite o código'}
             </button>
-          </div>
-        </div>
-
-        {/* Instructions Card */}
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl shadow-lg p-6 border-2 border-orange-200">
-          <div className="flex items-start space-x-3 mb-4">
-            <div className="flex-shrink-0">
-              <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <h4 className="font-bold text-orange-900 mb-3 text-lg">Como usar:</h4>
-              <ol className="text-sm text-orange-800 space-y-2">
-                <li className="flex items-start">
-                  <span className="font-bold mr-2 flex-shrink-0">1.</span>
-                  <span>Encontre o código de 6 caracteres no aspirador</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="font-bold mr-2 flex-shrink-0">2.</span>
-                  <span>Digite o código no campo acima</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="font-bold mr-2 flex-shrink-0">3.</span>
-                  <span>Escolha o tempo de uso e método de pagamento</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="font-bold mr-2 flex-shrink-0">4.</span>
-                  <span>Comece a usar o aspirador imediatamente!</span>
-                </li>
-              </ol>
-            </div>
-          </div>
-          
-          <div className="mt-4 pt-4 border-t border-orange-300">
-            <p className="text-xs text-orange-700 text-center">
-              💡 <strong>Dica:</strong> O código está localizado na parte frontal do aspirador
-            </p>
           </div>
         </div>
 

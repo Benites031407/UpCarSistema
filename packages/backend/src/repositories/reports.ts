@@ -13,9 +13,9 @@ export class ReportsRepository {
   static async getMachineReportData(machineId: string, filters: ReportFilters) {
     const client = await db.getClient();
     try {
-      // Get machine info
+      // Get machine info including quota
       const machineResult = await client.query(
-        'SELECT id, code, location FROM machines WHERE id = $1',
+        'SELECT id, code, location, location_owner_quota FROM machines WHERE id = $1',
         [machineId]
       );
 
@@ -56,11 +56,15 @@ export class ReportsRepository {
 
       const revenue = revenueResult.rows[0];
 
-      // Define quotas (these should come from machine configuration in production)
+      // Get quota from machine configuration (percentage 0-100)
+      const locationOwnerQuotaPercent = parseFloat(machine.location_owner_quota) || 50.00;
+      const locationOwnerQuota = locationOwnerQuotaPercent / 100; // Convert to decimal (0-1)
+      const commercialPointQuota = 1 - locationOwnerQuota; // Remaining goes to commercial point
+      
       const quotas = {
-        commercialPoint: 0.50,  // 50%
-        owner: 0.50,            // 50%
-        operationalFees: 0.10,  // 10%
+        commercialPoint: commercialPointQuota,
+        owner: locationOwnerQuota,
+        operationalFees: 0.10,  // 10% operational fees
       };
 
       // Calculate revenue breakdown
@@ -77,9 +81,9 @@ export class ReportsRepository {
       const appNet = appGross - operationalFeeAmount;
       const caixaNet = caixaGross;
 
-      // Calculate repasse values
-      const commercialPointValue = netRevenue * quotas.commercialPoint;
+      // Calculate repasse values based on machine's quota
       const ownerValue = netRevenue * quotas.owner;
+      const commercialPointValue = netRevenue * quotas.commercialPoint;
 
       // TODO: Implement custody tracking - for now set to 0
       const commercialPointCustody = 0;

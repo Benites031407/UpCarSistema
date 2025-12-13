@@ -292,33 +292,60 @@ export function enforceConcurrentSessionLimit(maxSessions: number = defaultSessi
  * Middleware to require re-authentication for sensitive operations
  */
 export function requireRecentAuth(maxAge: number = 30 * 60 * 1000) { // 30 minutes default
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const sessionMetadata = (req as any).sessionMetadata as SessionMetadata;
-    
-    if (!sessionMetadata) {
-      res.status(401).json({
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const sessionId = req.sessionId;
+      
+      if (!sessionId) {
+        res.status(401).json({
+          success: false,
+          error: 'Session required',
+          code: 'SESSION_REQUIRED'
+        });
+        return;
+      }
+
+      // Get session metadata from Redis
+      const sessionData = await redisSessionManager.getSession(sessionId);
+      if (!sessionData) {
+        res.status(401).json({
+          success: false,
+          error: 'Session expired',
+          code: 'SESSION_EXPIRED'
+        });
+        return;
+      }
+
+      const sessionMetadata: SessionMetadata = JSON.parse(sessionData);
+      
+      const now = new Date();
+      const lastReauth = sessionMetadata.lastReauth || sessionMetadata.createdAt;
+      const timeSinceReauth = now.getTime() - new Date(lastReauth).getTime();
+
+      if (timeSinceReauth > maxAge) {
+        res.status(401).json({
+          success: false,
+          error: 'Recent authentication required for this operation',
+          code: 'REAUTH_REQUIRED',
+          lastReauth: new Date(lastReauth).toISOString(),
+          timeSinceReauth: Math.floor(timeSinceReauth / 1000), // in seconds
+          maxAge: Math.floor(maxAge / 1000) // in seconds
+        });
+        return;
+      }
+
+      // Attach session metadata to request for other middleware
+      (req as any).sessionMetadata = sessionMetadata;
+
+      next();
+    } catch (error) {
+      logger.error('Recent auth check error:', error);
+      res.status(500).json({
         success: false,
-        error: 'Session required',
-        code: 'SESSION_REQUIRED'
+        error: 'Failed to verify authentication',
+        code: 'AUTH_CHECK_ERROR'
       });
-      return;
     }
-
-    const now = new Date();
-    const lastReauth = sessionMetadata.lastReauth || sessionMetadata.createdAt;
-    const timeSinceReauth = now.getTime() - lastReauth.getTime();
-
-    if (timeSinceReauth > maxAge) {
-      res.status(401).json({
-        success: false,
-        error: 'Recent authentication required for this operation',
-        code: 'REAUTH_REQUIRED',
-        lastReauth: lastReauth.toISOString()
-      });
-      return;
-    }
-
-    next();
   };
 }
 

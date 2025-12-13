@@ -207,6 +207,15 @@ export class UsageSessionService {
           externalReference: `session_${session.id}`,
           payerEmail: user!.email
         });
+        
+        // Store payment ID in session
+        await this.usageSessionRepo.update(session.id, {
+          paymentId: pixPayment.id
+        }, client);
+        
+        // Update session object with paymentId
+        session.paymentId = pixPayment.id;
+        
         paymentResult.pixPayment = pixPayment;
       }
 
@@ -308,8 +317,15 @@ export class UsageSessionService {
     try {
       await client.query('BEGIN');
 
-      // Update session to completed
+      // Calculate actual usage time
       const endTime = new Date();
+      const startTime = session.startTime || session.createdAt;
+      const actualMinutesUsed = Math.ceil((endTime.getTime() - startTime.getTime()) / (1000 * 60));
+      const plannedMinutes = session.duration;
+      
+      logger.info(`Session ${sessionId} - Planned: ${plannedMinutes}min, Actual: ${actualMinutesUsed}min (No refund - user paid for ${plannedMinutes}min)`);
+
+      // Update session to completed
       const updatedSession = await this.usageSessionRepo.endSession(sessionId, endTime, client);
       
       if (!updatedSession) {
@@ -319,8 +335,8 @@ export class UsageSessionService {
       // Update machine status back to online
       await this.machineRepo.updateStatus(session.machineId, 'online', client);
 
-      // Increment machine operating hours
-      await this.machineService.incrementOperatingHours(session.machineId, session.duration, client);
+      // Increment machine operating hours with ACTUAL time used (not planned duration)
+      await this.machineService.incrementOperatingHours(session.machineId, actualMinutesUsed, client);
 
       await client.query('COMMIT');
 
@@ -337,7 +353,7 @@ export class UsageSessionService {
       // Broadcast real-time session update
       webSocketService.broadcastSessionUpdate(updatedSession);
 
-      logger.info(`Session ${sessionId} terminated for machine ${session.machineId}`);
+      logger.info(`Session ${sessionId} terminated for machine ${session.machineId} - Actual usage: ${actualMinutesUsed}min of ${plannedMinutes}min paid`);
       
       return updatedSession;
 
@@ -424,14 +440,24 @@ export class UsageSessionService {
       throw new Error('Session not found');
     }
 
+    logger.info('Confirming payment:', { 
+      sessionId, 
+      sessionPaymentId: session.paymentId, 
+      providedPaymentId: paymentId 
+    });
+
     if (session.paymentId !== paymentId) {
-      throw new Error('Payment ID mismatch');
+      throw new Error(`Payment ID mismatch: session has ${session.paymentId}, provided ${paymentId}`);
     }
 
-    // Confirm the PIX payment
-    await this.paymentService.confirmPIXPayment(paymentId);
+    // Check payment status with Mercado Pago
+    const paymentStatus = await this.paymentService.checkPIXPaymentStatus(paymentId);
+    
+    if (paymentStatus.status !== 'approved') {
+      throw new Error(`Payment not approved. Current status: ${paymentStatus.status}`);
+    }
 
-    // Activate the session
+    // Activate the session (payment is confirmed)
     return await this.activateSession(sessionId);
   }
 

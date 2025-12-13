@@ -43,11 +43,23 @@ export class PostgresUsageSessionRepository implements UsageSessionRepository {
     const { limit = 50, offset = 0, orderBy = 'created_at', orderDirection = 'DESC' } = options;
     
     const result = await db.query(
-      `SELECT * FROM usage_sessions WHERE user_id = $1 ORDER BY ${orderBy} ${orderDirection} LIMIT $2 OFFSET $3`,
+      `SELECT 
+        us.*,
+        m.code as machine_code,
+        m.location as machine_location
+      FROM usage_sessions us
+      LEFT JOIN machines m ON us.machine_id = m.id
+      WHERE us.user_id = $1 
+      ORDER BY us.${orderBy} ${orderDirection} 
+      LIMIT $2 OFFSET $3`,
       [userId, limit, offset]
     );
     
-    return result.rows.map(this.mapRowToUsageSession);
+    return result.rows.map(row => ({
+      ...this.mapRowToUsageSession(row),
+      machineCode: row.machine_code,
+      machineLocation: row.machine_location
+    }));
   }
 
   async findByMachineId(machineId: string, options: QueryOptions = {}): Promise<UsageSession[]> {

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 import { Transaction, User, CreateTransactionInput } from '../models/types.js';
 import { TransactionRepository } from '../repositories/interfaces.js';
 import { UserRepository } from '../repositories/interfaces.js';
@@ -129,10 +130,14 @@ export class PaymentService {
               }
             };
 
+            // Generate idempotency key to prevent duplicate payments
+            const idempotencyKey = uuidv4();
+
             this.logger.debug('Creating PIX payment:', { 
               amount: request.amount, 
               description: request.description,
-              externalReference: request.externalReference 
+              externalReference: request.externalReference,
+              idempotencyKey
             });
 
             const response = await axios.post(
@@ -141,7 +146,8 @@ export class PaymentService {
               {
                 headers: {
                   'Authorization': `Bearer ${this.mercadoPagoAccessToken}`,
-                  'Content-Type': 'application/json'
+                  'Content-Type': 'application/json',
+                  'X-Idempotency-Key': idempotencyKey
                 },
                 timeout: 30000 // 30 second timeout
               }

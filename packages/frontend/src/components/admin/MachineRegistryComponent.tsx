@@ -20,7 +20,12 @@ interface Machine {
   maxDurationMinutes: number;
   powerConsumptionWatts: number;
   kwhRate: number;
-  temperature?: number;
+  locationOwnerQuota: number;
+  operationalCostQuota: number;
+  maintenanceOverride: boolean;
+  maintenanceOverrideReason?: string;
+  maintenanceOverrideAt?: string;
+  maintenanceOverrideBy?: string;
   lastHeartbeat?: string;
   createdAt: string;
   updatedAt: string;
@@ -37,6 +42,15 @@ interface MachineFormData {
   maxDurationMinutes: number;
   powerConsumptionWatts: number;
   kwhRate: number;
+  locationOwnerQuota: number;
+  operationalCostQuota: number;
+}
+
+interface ErrorModalData {
+  title: string;
+  message: string;
+  details?: string;
+  suggestion?: string;
 }
 
 export const MachineRegistryComponent: React.FC = () => {
@@ -44,6 +58,7 @@ export const MachineRegistryComponent: React.FC = () => {
   const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
   const [selectedMachineForInfo, setSelectedMachineForInfo] = useState<Machine | null>(null);
   const [selectedMachineForQR, setSelectedMachineForQR] = useState<Machine | null>(null);
+  const [errorModal, setErrorModal] = useState<ErrorModalData | null>(null);
   const [formData, setFormData] = useState<MachineFormData>({
     code: '',
     location: '',
@@ -55,6 +70,8 @@ export const MachineRegistryComponent: React.FC = () => {
     maxDurationMinutes: 30,
     powerConsumptionWatts: 1200,
     kwhRate: 0.65,
+    locationOwnerQuota: 50.00,
+    operationalCostQuota: 10.00,
   });
   const formRef = React.useRef<HTMLDivElement>(null);
 
@@ -89,6 +106,8 @@ export const MachineRegistryComponent: React.FC = () => {
         maxDurationMinutes: data.maxDurationMinutes,
         powerConsumptionWatts: data.powerConsumptionWatts,
         kwhRate: data.kwhRate,
+        locationOwnerQuota: data.locationOwnerQuota,
+        operationalCostQuota: data.operationalCostQuota,
       };
       const response = await api.post('/admin/machines', payload);
       return response.data;
@@ -115,6 +134,8 @@ export const MachineRegistryComponent: React.FC = () => {
       if (data.maxDurationMinutes !== undefined) payload.maxDurationMinutes = data.maxDurationMinutes;
       if (data.powerConsumptionWatts !== undefined) payload.powerConsumptionWatts = data.powerConsumptionWatts;
       if (data.kwhRate !== undefined) payload.kwhRate = data.kwhRate;
+      if (data.locationOwnerQuota !== undefined) payload.locationOwnerQuota = data.locationOwnerQuota;
+      if (data.operationalCostQuota !== undefined) payload.operationalCostQuota = data.operationalCostQuota;
       
       const response = await api.put(`/admin/machines/${id}`, payload);
       return response.data;
@@ -133,6 +154,21 @@ export const MachineRegistryComponent: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-machines'] });
     },
+    onError: (error: any) => {
+      const errorData = error.response?.data;
+      if (errorData?.error && errorData?.reason) {
+        setErrorModal({
+          title: 'Não foi possível alterar o status',
+          message: errorData.reason,
+          suggestion: errorData.suggestion,
+        });
+      } else {
+        setErrorModal({
+          title: 'Erro',
+          message: error.response?.data?.error || 'Falha ao atualizar status da máquina',
+        });
+      }
+    },
   });
 
   const deleteMachineMutation = useMutation({
@@ -145,9 +181,53 @@ export const MachineRegistryComponent: React.FC = () => {
     },
   });
 
+  const toggleMaintenanceOverrideMutation = useMutation({
+    mutationFn: async ({ id, override, reason }: { id: string; override: boolean; reason?: string }) => {
+      const response = await api.patch(`/admin/machines/${id}/maintenance-override`, { override, reason });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-machines'] });
+    },
+  });
+
+  const resetMaintenanceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await api.patch(`/admin/machines/${id}/reset-maintenance`);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-machines'] });
+    },
+  });
+
   const handleDelete = (machine: Machine) => {
     if (window.confirm(`Tem certeza que deseja excluir o aspirador ${machine.code} (${machine.location})?\n\nEsta ação não pode ser desfeita.`)) {
       deleteMachineMutation.mutate(machine.id);
+    }
+  };
+
+  const handleToggleMaintenanceOverride = (machine: Machine) => {
+    if (machine.maintenanceOverride) {
+      // Disable override
+      if (window.confirm(`Desativar override de manutenção para ${machine.code}?\n\nA máquina voltará ao modo de manutenção se exceder o limite.`)) {
+        toggleMaintenanceOverrideMutation.mutate({ id: machine.id, override: false });
+      }
+    } else {
+      // Enable override
+      const reason = window.prompt(
+        `Ativar override de manutenção para ${machine.code}?\n\nA máquina poderá operar mesmo excedendo o limite de ${machine.maintenanceInterval}h.\n\nMotivo (opcional):`,
+        'Manutenção programada para breve'
+      );
+      if (reason !== null) {
+        toggleMaintenanceOverrideMutation.mutate({ id: machine.id, override: true, reason: reason || undefined });
+      }
+    }
+  };
+
+  const handleResetMaintenance = (machine: Machine) => {
+    if (window.confirm(`Resetar contador de manutenção para ${machine.code}?\n\nIsso irá:\n- Zerar o contador de horas (${machine.currentOperatingHours.toFixed(2)}h → 0h)\n- Desativar override se ativo\n- Colocar máquina online\n\nConfirmar que a manutenção foi realizada?`)) {
+      resetMaintenanceMutation.mutate(machine.id);
     }
   };
 
@@ -163,6 +243,8 @@ export const MachineRegistryComponent: React.FC = () => {
       maxDurationMinutes: 30,
       powerConsumptionWatts: 1200,
       kwhRate: 0.65,
+      locationOwnerQuota: 50.00,
+      operationalCostQuota: 10.00,
     });
     setShowForm(false);
     setEditingMachine(null);
@@ -190,6 +272,8 @@ export const MachineRegistryComponent: React.FC = () => {
       maxDurationMinutes: machine.maxDurationMinutes,
       powerConsumptionWatts: machine.powerConsumptionWatts || 1200,
       kwhRate: machine.kwhRate || 0.65,
+      locationOwnerQuota: machine.locationOwnerQuota || 50.00,
+      operationalCostQuota: machine.operationalCostQuota || 10.00,
     });
     setShowForm(true);
     
@@ -278,11 +362,18 @@ export const MachineRegistryComponent: React.FC = () => {
                 <input
                   type="text"
                   value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setFormData({ ...formData, code: value });
+                  }}
                   disabled={!!editingMachine}
+                  pattern="[0-9]{1,6}"
+                  maxLength={6}
+                  placeholder="Ex: 123456"
                   className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
                   required
                 />
+                <p className="mt-1 text-xs text-gray-500">Apenas números, máximo 6 dígitos</p>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -408,6 +499,38 @@ export const MachineRegistryComponent: React.FC = () => {
                 />
                 <p className="mt-1 text-xs text-gray-500">Custo por kWh de energia elétrica</p>
               </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Cota do Proprietário (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={formData.locationOwnerQuota}
+                  onChange={(e) => setFormData({ ...formData, locationOwnerQuota: Number(e.target.value) })}
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">Percentual da receita líquida para o proprietário do local (0-100%)</p>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Custos Operacionais (%)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={formData.operationalCostQuota}
+                  onChange={(e) => setFormData({ ...formData, operationalCostQuota: Number(e.target.value) })}
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                  required
+                />
+                <p className="mt-1 text-xs text-gray-500">Percentual da receita para custos operacionais (0-100%)</p>
+              </div>
             </div>
             <div className="flex justify-end space-x-3 pt-2">
               <button
@@ -465,7 +588,7 @@ export const MachineRegistryComponent: React.FC = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Manutenção:</span>
-                        <span className="font-medium">{machine.currentOperatingHours}h / {machine.maintenanceInterval}h</span>
+                        <span className="font-medium">{machine.currentOperatingHours.toFixed(2)}h / {machine.maintenanceInterval}h</span>
                       </div>
                     </div>
 
@@ -548,21 +671,48 @@ export const MachineRegistryComponent: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <select
-                          value={machine.status}
-                          onChange={(e) => handleStatusChange(machine.id, e.target.value)}
-                          className={`text-xs font-medium rounded-full px-2 py-1 ${getStatusColor(machine.status)}`}
-                        >
-                          <option value="online">Ligada</option>
-                          <option value="offline">Desligada</option>
-                          <option value="maintenance">Manutenção</option>
-                        </select>
+                        <div className="flex items-center space-x-2">
+                          <select
+                            value={machine.status}
+                            onChange={(e) => handleStatusChange(machine.id, e.target.value)}
+                            className={`text-xs font-medium rounded-full px-2 py-1 ${getStatusColor(machine.status)}`}
+                          >
+                            <option value="online">Ligada</option>
+                            <option value="offline">Desligada</option>
+                            <option value="maintenance">Manutenção</option>
+                          </select>
+                          {(() => {
+                            if (!machine.lastHeartbeat) return null;
+                            const now = new Date();
+                            const lastHeartbeat = new Date(machine.lastHeartbeat);
+                            const secondsSince = Math.floor((now.getTime() - lastHeartbeat.getTime()) / 1000);
+                            const isConnected = secondsSince < 90;
+                            
+                            return (
+                              <span 
+                                className={`text-xs ${isConnected ? 'text-green-600' : 'text-red-600'}`}
+                                title={`Último heartbeat: ${secondsSince}s atrás`}
+                              >
+                                {isConnected ? '🟢' : '🔴'}
+                              </span>
+                            );
+                          })()}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {machine.operatingHours.start} - {machine.operatingHours.end}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {machine.currentOperatingHours}h / {machine.maintenanceInterval}h
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center space-x-2">
+                          <span className={machine.currentOperatingHours >= machine.maintenanceInterval ? 'text-red-600 font-semibold' : 'text-gray-900'}>
+                            {machine.currentOperatingHours.toFixed(2)}h / {machine.maintenanceInterval}h
+                          </span>
+                          {machine.maintenanceOverride && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800" title={`Override ativo: ${machine.maintenanceOverrideReason || 'Sem motivo'}`}>
+                              ⚠️ Override
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center justify-end space-x-1">
@@ -593,6 +743,34 @@ export const MachineRegistryComponent: React.FC = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                             </svg>
                           </button>
+                          {machine.currentOperatingHours >= machine.maintenanceInterval && (
+                            <>
+                              <button
+                                onClick={() => handleToggleMaintenanceOverride(machine)}
+                                disabled={toggleMaintenanceOverrideMutation.isPending}
+                                className={`p-2 rounded-md transition-colors disabled:opacity-50 ${
+                                  machine.maintenanceOverride
+                                    ? 'text-yellow-600 hover:bg-yellow-50'
+                                    : 'text-purple-600 hover:bg-purple-50'
+                                }`}
+                                title={machine.maintenanceOverride ? 'Desativar Override' : 'Ativar Override (Operar com Aviso)'}
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleResetMaintenance(machine)}
+                                disabled={resetMaintenanceMutation.isPending}
+                                className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors disabled:opacity-50"
+                                title="Resetar Manutenção (Zerar Contador)"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
                           <button
                             onClick={() => handleDelete(machine)}
                             disabled={deleteMachineMutation.isPending}
@@ -684,6 +862,53 @@ export const MachineRegistryComponent: React.FC = () => {
                   Fechar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {errorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-start mb-4">
+              <div className="flex-shrink-0">
+                <svg className="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="ml-4 flex-1">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  {errorModal.title}
+                </h3>
+                <p className="text-sm text-gray-700 mb-3">
+                  {errorModal.message}
+                </p>
+                {errorModal.suggestion && (
+                  <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-3">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <p className="text-sm text-blue-700">
+                          <strong>Sugestão:</strong> {errorModal.suggestion}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setErrorModal(null)}
+                className="px-6 py-2.5 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 shadow-lg transition-all"
+              >
+                Entendi
+              </button>
             </div>
           </div>
         </div>

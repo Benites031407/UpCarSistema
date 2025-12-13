@@ -15,7 +15,6 @@ interface Machine {
     start: string;
     end: string;
   };
-  temperature?: number;
 }
 
 interface Availability {
@@ -29,10 +28,18 @@ interface Availability {
   maintenanceRequired: boolean;
 }
 
+interface PIXPaymentData {
+  id: string;
+  qrCode?: string;
+  qrCodeBase64?: string;
+  pixCopyPaste?: string;
+  amount: number;
+}
+
 export const MachineActivationPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [machine, setMachine] = useState<Machine | null>(null);
@@ -46,6 +53,10 @@ export const MachineActivationPage: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [showStopModal, setShowStopModal] = useState(false);
+  const [pixPaymentData, setPixPaymentData] = useState<PIXPaymentData | null>(null);
+  const [showPixModal, setShowPixModal] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [checkingPayment, setCheckingPayment] = useState(false);
 
   // Real-time session monitoring
   const {
@@ -151,25 +162,24 @@ export const MachineActivationPage: React.FC = () => {
         await api.post(`/sessions/${sessionData.id}/activate`);
         setSession({ ...sessionData, status: 'active' });
       } else if (paymentMethod === 'pix') {
-        // Create PIX payment
-        const pixResponse = await api.post('/payments/pix', {
-          amount: duration,
-          description: `Machine usage - ${machine.location} (${duration} minutes)`,
-          externalReference: sessionData.id,
-        });
+        // PIX payment was already created by the backend during session creation
+        const pixData = sessionResponse.data.paymentRequired?.pixPayment;
+        
+        console.log('PIX Payment Response:', pixData);
 
-        // For demo purposes, we'll simulate payment confirmation
-        // In production, this would be handled by webhooks
-        setTimeout(async () => {
-          try {
-            await api.post(`/sessions/${sessionData.id}/confirm-payment`, {
-              paymentId: pixResponse.data.data.pixPayment.id,
-            });
-            setSession({ ...sessionData, status: 'active' });
-          } catch (error) {
-            console.error('Payment confirmation failed:', error);
-          }
-        }, 3000);
+        if (pixData) {
+          setPixPaymentData({
+            id: pixData.id,
+            qrCode: pixData.qrCode,
+            qrCodeBase64: pixData.qrCodeBase64,
+            pixCopyPaste: pixData.pixCopyPaste,
+            amount: duration
+          });
+          setShowPixModal(true);
+        }
+
+        // Note: In production, payment confirmation would be handled by Mercado Pago webhooks
+        // The session will activate automatically when the webhook confirms the payment
       } else if (paymentMethod === 'mixed') {
         // Handle mixed payment
         await api.post('/payments/mixed', {
@@ -228,6 +238,21 @@ export const MachineActivationPage: React.FC = () => {
     setError(''); // Clear any errors when cancelling
   };
 
+  const handleCopyPixCode = () => {
+    if (pixPaymentData?.pixCopyPaste) {
+      navigator.clipboard.writeText(pixPaymentData.pixCopyPaste);
+      setMessage({ type: 'success', text: 'Código PIX copiado!' });
+    }
+  };
+
+  const handleClosePixModal = () => {
+    setShowPixModal(false);
+    // Keep pixPaymentData so user can check payment status
+  };
+
+  // Note: Automatic polling disabled to avoid Mercado Pago rate limits
+  // In production, use Mercado Pago webhooks for automatic payment confirmation
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -256,7 +281,7 @@ export const MachineActivationPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-500 via-orange-300 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-400">
       {/* Sidebar Overlay */}
       {sidebarOpen && user && (
         <div 
@@ -305,20 +330,7 @@ export const MachineActivationPage: React.FC = () => {
               <div className="space-y-2">
                 <button
                   onClick={() => {
-                    navigate('/account');
-                    setSidebarOpen(false);
-                  }}
-                  className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <span className="font-medium">Meu Saldo</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    navigate('/account');
+                    navigate('/adicionar-credito');
                     setSidebarOpen(false);
                   }}
                   className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
@@ -331,7 +343,7 @@ export const MachineActivationPage: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    navigate('/account');
+                    navigate('/historico');
                     setSidebarOpen(false);
                   }}
                   className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
@@ -344,7 +356,7 @@ export const MachineActivationPage: React.FC = () => {
 
                 <button
                   onClick={() => {
-                    navigate('/account');
+                    navigate('/configuracoes');
                     setSidebarOpen(false);
                   }}
                   className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
@@ -359,17 +371,38 @@ export const MachineActivationPage: React.FC = () => {
                 <div className="border-t border-gray-200 my-4"></div>
 
                 <button
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => {
+                    navigate('/assinatura');
+                    setSidebarOpen(false);
+                  }}
+                  className="w-full flex items-center space-x-3 px-4 py-3 text-white bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 rounded-lg transition-colors shadow-md"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium">Assinatura Mensal</span>
+                </button>
+
+                <div className="border-t border-gray-200 my-4"></div>
+
+                <a
+                  href="https://wa.me/5511948580070"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
                   <span className="font-medium">Suporte</span>
-                </button>
+                </a>
 
                 <button
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => {
+                    navigate('/termos-e-condicoes');
+                    setSidebarOpen(false);
+                  }}
                   className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -379,7 +412,10 @@ export const MachineActivationPage: React.FC = () => {
                 </button>
 
                 <button
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => {
+                    navigate('/politica-de-privacidade');
+                    setSidebarOpen(false);
+                  }}
                   className="w-full flex items-center space-x-3 px-4 py-3 text-gray-700 hover:bg-orange-50 rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -413,8 +449,13 @@ export const MachineActivationPage: React.FC = () => {
             <div className="p-4 border-t border-gray-200">
               <button
                 onClick={() => {
-                  logout();
+                  // Close any open modals
+                  setShowPixModal(false);
+                  setShowStopModal(false);
                   setSidebarOpen(false);
+                  // Logout and redirect to home
+                  logout();
+                  navigate('/');
                 }}
                 className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
               >
@@ -479,20 +520,7 @@ export const MachineActivationPage: React.FC = () => {
         {/* Activation Form - Initial State */}
         {!session && availability?.available && user && (
           <div className="space-y-6">
-            {/* Machine Info */}
-            {machine && (
-              <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-xl font-bold text-gray-900">{machine.location}</h2>
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                    Disponível
-                  </span>
-                </div>
-                <div className="text-sm text-gray-600">
-                  Código: <span className="font-mono font-bold text-gray-900">{code}</span>
-                </div>
-              </div>
-            )}
+
 
             {/* 1. Time Selection */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
@@ -521,9 +549,9 @@ export const MachineActivationPage: React.FC = () => {
                 ))}
               </div>
 
-              {/* Custom Time Slider */}
+              {/* Custom Time with +/- buttons */}
               <div className="bg-gray-50 rounded-xl p-4">
-                <div className="flex items-center justify-center space-x-4 mb-3">
+                <div className="flex items-center justify-center space-x-4">
                   <button
                     onClick={() => setDuration(Math.max(1, duration - 1))}
                     disabled={processing || duration <= 1}
@@ -543,66 +571,17 @@ export const MachineActivationPage: React.FC = () => {
                     +
                   </button>
                 </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="30"
-                  value={duration}
-                  onChange={(e) => setDuration(parseInt(e.target.value))}
-                  disabled={processing}
-                  className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-orange-600"
-                />
               </div>
             </div>
 
             {/* 2. Vacuuming Price */}
-            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-2xl p-8 text-center">
-              <p className="text-orange-100 text-sm font-medium mb-2">Preço da Aspiração</p>
-              <div className="text-white text-6xl font-bold mb-2">{formatCurrency(duration)}</div>
-              <p className="text-orange-100 text-sm">{duration} minutos de uso</p>
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-4 text-center">
+              <p className="text-orange-100 text-xs font-medium mb-1">Preço da Aspiração</p>
+              <div className="text-white text-3xl font-bold mb-1">{formatCurrency(duration)}</div>
+              <p className="text-orange-100 text-xs">{duration} minutos de uso</p>
             </div>
 
-            {/* 3. Account Credits */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-600">Crédito da Conta</p>
-                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(user?.accountBalance || 0)}</p>
-                  </div>
-                </div>
-                {user && user.accountBalance >= duration ? (
-                  <div className="flex items-center space-x-2 text-green-600">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-semibold">OK</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2 text-red-600">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="font-semibold text-sm">Insuficiente</span>
-                  </div>
-                )}
-              </div>
-              {user && user.accountBalance < duration && (
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    Você precisa adicionar <span className="font-bold">{formatCurrency(duration - user.accountBalance)}</span> para usar este tempo.
-                  </p>
-                  <Link to="/account" className="text-sm text-orange-600 font-semibold hover:text-orange-700 mt-1 inline-block">
-                    Adicionar crédito →
-                  </Link>
-                </div>
-              )}
-            </div>
+
 
             {/* Payment Method */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
@@ -727,21 +706,6 @@ export const MachineActivationPage: React.FC = () => {
         {/* Active Session View */}
         {session && (realtimeSession?.status || session.status) === 'active' && (
           <div className="space-y-6">
-            {/* Machine Info */}
-            {machine && (
-              <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-gray-900">{machine.location}</h2>
-                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
-                    Em Uso
-                  </span>
-                </div>
-                <div className="text-sm text-gray-600">
-                  Código: <span className="font-mono font-bold text-gray-900">{code}</span>
-                </div>
-              </div>
-            )}
-
             {/* Countdown Timer - Main Focus */}
             <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 text-center">
               <h3 className="text-lg font-semibold text-gray-700 mb-2">
@@ -805,11 +769,11 @@ export const MachineActivationPage: React.FC = () => {
             <h3 className="text-xl font-bold text-gray-900 mb-2">
               Aguardando Pagamento
             </h3>
-            <p className="text-gray-600 mb-6">
-              O aspirador iniciará automaticamente após a confirmação
+            <p className="text-gray-600 mb-4">
+              Após pagar, clique no botão abaixo para verificar o pagamento
             </p>
             
-            <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <div className="bg-gray-50 rounded-xl p-4 space-y-3 mb-4">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Duração:</span>
                 <span className="font-bold text-gray-900">{duration} minutos</span>
@@ -819,6 +783,65 @@ export const MachineActivationPage: React.FC = () => {
                 <span className="font-bold text-orange-600 text-lg">{formatCurrency(duration)}</span>
               </div>
             </div>
+
+            {/* Check Payment Button */}
+            {pixPaymentData && (
+              <button
+                onClick={async () => {
+                  try {
+                    setProcessing(true);
+                    setError('');
+                    
+                    // Check payment status
+                    const statusResponse = await api.get(`/payments/status/${pixPaymentData.id}`);
+                    console.log('Payment status:', statusResponse.data);
+                    
+                    if (statusResponse.data.data.status === 'approved') {
+                      // Confirm payment and activate session
+                      await api.post(`/sessions/${session.id}/confirm-payment`, {
+                        paymentId: pixPaymentData.id,
+                      });
+                      
+                      // Refresh session data
+                      const sessionResponse = await api.get(`/sessions/${session.id}`);
+                      setSession(sessionResponse.data.session);
+                      
+                      setMessage({ type: 'success', text: 'Pagamento confirmado! Iniciando aspirador...' });
+                    } else {
+                      setMessage({ type: 'error', text: 'Pagamento ainda não confirmado. Aguarde alguns segundos e tente novamente.' });
+                    }
+                  } catch (error: any) {
+                    console.error('Failed to check payment:', error);
+                    setError(error.response?.data?.error || 'Falha ao verificar pagamento');
+                  } finally {
+                    setProcessing(false);
+                  }
+                }}
+                disabled={processing}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {processing ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Verificando...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center">
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Já Paguei - Verificar Pagamento
+                  </span>
+                )}
+              </button>
+            )}
+
+            <p className="text-xs text-gray-500 mt-3">
+              O pagamento pode levar alguns segundos para ser confirmado
+            </p>
           </div>
         )}
 
@@ -914,6 +937,87 @@ export const MachineActivationPage: React.FC = () => {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PIX Payment Modal */}
+      {showPixModal && pixPaymentData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-3">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-1">Pagamento PIX</h3>
+              <p className="text-sm text-gray-600">Copie o código e cole no app do seu banco</p>
+            </div>
+
+            {/* Message */}
+            {message && (
+              <div className={`mb-4 p-3 rounded-lg flex justify-between items-center ${
+                message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
+              }`}>
+                <span className="text-sm font-medium">{message.text}</span>
+                <button
+                  onClick={() => setMessage(null)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Amount */}
+            <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3 mb-4 text-center">
+              <p className="text-xs text-green-700 mb-1">Valor a pagar</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(pixPaymentData.amount)}</p>
+            </div>
+
+            {/* PIX Copy Paste Code */}
+            {pixPaymentData.pixCopyPaste && (
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Código PIX Copia e Cola</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={pixPaymentData.pixCopyPaste}
+                    readOnly
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-50 text-xs font-mono pr-20"
+                  />
+                  <button
+                    onClick={handleCopyPixCode}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-bold transition-colors"
+                  >
+                    Copiar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-blue-800 font-semibold mb-2">Como pagar:</p>
+              <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
+                <li>Abra o app do seu banco</li>
+                <li>Escolha pagar com PIX</li>
+                <li>Cole o código copiado</li>
+                <li>Confirme o pagamento</li>
+                <li>O aspirador iniciará automaticamente</li>
+              </ol>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={handleClosePixModal}
+              className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg transition-colors"
+            >
+              Fechar
+            </button>
           </div>
         </div>
       )}

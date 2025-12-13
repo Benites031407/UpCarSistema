@@ -37,6 +37,13 @@ interface MachineReportData {
     value: number;
     addedBy: string;
   }>;
+  usageHistory?: Array<{
+    userName: string;
+    date: string;
+    duration: number;
+    amount: number;
+    paymentMethod: string;
+  }>;
   totals: {
     totalLiquid: number;
     custodyValue: number;
@@ -81,83 +88,192 @@ export class PDFGenerator {
    * Generate individual machine report PDF (Repasse format)
    */
   static generateMachineReport(data: MachineReportData): Readable {
-    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const doc = new PDFDocument({ size: 'A4', margin: 30 });
 
-    // --- HEADER PROFISSIONAL ---
+    // --- LOGO ---
     this.addRepasseHeader(doc);
 
-    // SECTION: Dados do Aspirador
-    this.sectionTitle(doc, 'Informações do Aspirador');
-    this.kv(doc, 'Número do Aspirador', data.machine.number);
-    this.kv(doc, 'Endereço', data.machine.address);
-    this.kv(doc, 'Cidade', data.machine.city);
-    this.kv(
-      doc,
-      'Período de Referência',
-      `${this.formatDate(data.referencePeriod.startDate)} a ${this.formatDate(data.referencePeriod.endDate)}`
+    // --- MACHINE INFO (Compact) ---
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text(`Código do Aspirador: ${data.machine.number}`, 40, doc.y);
+    doc.font('Helvetica').fontSize(10);
+    doc.text(`Endereço: ${data.machine.address}`);
+    doc.text(`Cidade: ${data.machine.city}`);
+    doc.text(
+      `Período de Referência: ${this.formatDate(data.referencePeriod.startDate)} a ${this.formatDate(data.referencePeriod.endDate)}`
     );
-    doc.moveDown(1.2);
+    doc.moveDown(1);
 
-    // SECTION: Cotas
-    this.sectionTitle(doc, 'Cotas');
-    this.kv(doc, 'Ponto Comercial', `${(data.quotas.commercialPoint * 100).toFixed(0)}%`);
-    this.kv(doc, 'Proprietário', `${(data.quotas.owner * 100).toFixed(0)}%`);
-    this.kv(doc, 'Taxas Operacionais', `${(data.quotas.operationalFees * 100).toFixed(0)}%`);
-    doc.moveDown(1.2);
+    // --- SEPARATOR ---
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).strokeColor('#000000').lineWidth(1).stroke();
+    doc.moveDown(0.8);
 
-    // SECTION: Receita
-    this.sectionTitle(doc, 'Receita');
-    this.kv(doc, 'Caixa (Bruto)', `R$ ${data.revenue.caixaGross.toFixed(2)}`);
-    this.kv(doc, 'APP (Bruto)', `R$ ${data.revenue.appGross.toFixed(2)}`);
-    doc.moveDown(0.4);
-    this.kv(doc, 'Caixa (Líquido)', `R$ ${data.revenue.caixaNet.toFixed(2)}`);
-    this.kv(doc, 'APP (Líquido)', `R$ ${data.revenue.appNet.toFixed(2)}`);
+    // --- SECTION: COTAS ---
+    doc.fontSize(11).font('Helvetica-Bold');
+    doc.text('Cotas');
+    doc.moveDown(0.3);
+    
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Ponto Comercial: ${(data.quotas.commercialPoint * 100).toFixed(0)}%`);
+    doc.text(`Proprietário: ${(data.quotas.owner * 100).toFixed(0)}%`);
+    doc.text(`Taxas Operacionais: ${(data.quotas.operationalFees * 100).toFixed(0)}%`);
+    doc.moveDown(1);
+
+    // --- SEPARATOR ---
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).strokeColor('#000000').lineWidth(1).stroke();
+    doc.moveDown(0.8);
+
+    // --- SECTION: RECEITAS (TABLE FORMAT) ---
+    doc.fontSize(11).font('Helvetica-Bold');
+    doc.text('Receitas');
+    doc.moveDown(0.3);
+    
+    // Table header
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Receita', 40);
+    doc.text('Caixa', 220, doc.y - 10);
+    doc.text('App', 320, doc.y);
+    doc.moveDown(0.2);
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(0.3);
+    
+    // Table rows
+    doc.font('Helvetica').fontSize(10);
+    doc.text('Bruto', 40);
+    doc.text(`R$ ${data.revenue.caixaGross.toFixed(2)}`, 220, doc.y - 10);
+    doc.text(`R$ ${data.revenue.appGross.toFixed(2)}`, 320, doc.y);
+    doc.moveDown(0.3);
+    
+    doc.text('Líquido', 40);
+    doc.text(`R$ ${data.revenue.caixaNet.toFixed(2)}`, 220, doc.y - 10);
+    doc.text(`R$ ${data.revenue.appNet.toFixed(2)}`, 320, doc.y);
     doc.moveDown(0.5);
-    this.kv(doc, 'Faturamento Total (Real)', `R$ ${data.revenue.totalReal.toFixed(2)}`);
-    doc.moveDown(1.2);
+    
+    doc.font('Helvetica-Bold');
+    doc.text('Total', 40);
+    doc.text(`R$ ${data.revenue.totalReal.toFixed(2)}`, 220, doc.y - 10);
+    doc.font('Helvetica');
+    doc.moveDown(1);
 
-    // SECTION: Repasse
-    this.sectionTitle(doc, 'Cálculo de Repasse Financeiro');
-    this.kv(doc, 'Ponto Comercial – Valor', `R$ ${data.repasse.commercialPointValue.toFixed(2)}`);
-    this.kv(doc, 'Ponto Comercial – Custódia', `R$ ${data.repasse.commercialPointCustody.toFixed(2)}`);
-    this.kv(
-      doc,
-      'Ponto Comercial – A Pagar/Receber',
-      `R$ ${data.repasse.commercialPointReceivePay.toFixed(2)}`
-    );
-    doc.moveDown(0.5);
-    this.kv(doc, 'Proprietário – Valor', `R$ ${data.repasse.ownerValue.toFixed(2)}`);
-    this.kv(doc, 'Proprietário – Custódia', `R$ ${data.repasse.ownerCustody.toFixed(2)}`);
-    this.kv(
-      doc,
-      'Proprietário – A Pagar/Receber',
-      `R$ ${data.repasse.ownerReceivePay.toFixed(2)}`
-    );
-    doc.moveDown(1.2);
+    // --- SEPARATOR ---
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).strokeColor('#000000').lineWidth(1).stroke();
+    doc.moveDown(0.8);
 
-    // SECTION: Histórico de Recebimentos
-    if (data.receiptsHistory.length > 0) {
-      doc.addPage();
-      this.sectionTitle(doc, 'Histórico de Recebimentos');
-      this.tableHeader(doc, ['Usuário', 'Data', 'Valor', 'Adicionado por'], [150, 120, 80, 120]);
+    // --- SECTION: REPASSE (TABLE FORMAT) ---
+    doc.fontSize(11).font('Helvetica-Bold');
+    doc.text('Cálculo de Repasse');
+    doc.moveDown(0.3);
+    
+    // Table header
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Parte', 40);
+    doc.text('Valor', 180, doc.y - 10);
+    doc.text('Custódia', 280, doc.y);
+    doc.text('Pagar/Receber', 400, doc.y);
+    doc.moveDown(0.2);
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(0.3);
+    
+    // Table rows
+    doc.font('Helvetica').fontSize(10);
+    doc.text('Ponto Comercial', 40);
+    doc.text(`R$ ${data.repasse.commercialPointValue.toFixed(2)}`, 180, doc.y - 10);
+    doc.text(`R$ ${data.repasse.commercialPointCustody.toFixed(2)}`, 280, doc.y);
+    doc.text(`R$ ${data.repasse.commercialPointReceivePay.toFixed(2)}`, 400, doc.y);
+    doc.moveDown(0.3);
+    
+    doc.text('Proprietário', 40);
+    doc.text(`R$ ${data.repasse.ownerValue.toFixed(2)}`, 180, doc.y - 10);
+    doc.text(`R$ ${data.repasse.ownerCustody.toFixed(2)}`, 280, doc.y);
+    doc.text(`R$ ${data.repasse.ownerReceivePay.toFixed(2)}`, 400, doc.y);
+    doc.moveDown(1);
 
-      doc.fontSize(9).font('Helvetica');
-      data.receiptsHistory.forEach((item) => {
+    // --- SEPARATOR ---
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).strokeColor('#000000').lineWidth(1).stroke();
+    doc.moveDown(0.8);
+
+    // --- SECTION: HISTÓRICO DE USO ---
+    const historyData = data.usageHistory || data.receiptsHistory;
+    if (historyData && historyData.length > 0) {
+      doc.fontSize(11).font('Helvetica-Bold');
+      doc.text('Histórico de Uso');
+      doc.moveDown(0.3);
+      
+      // Table header
+      doc.fontSize(9).font('Helvetica-Bold');
+      doc.text('Usuário', 40);
+      doc.text('Data/Hora', 180, doc.y - 9);
+      doc.text('Duração', 300, doc.y);
+      doc.text('Valor', 370, doc.y);
+      doc.text('Pagamento', 450, doc.y);
+      doc.moveDown(0.2);
+      doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke();
+      doc.moveDown(0.3);
+
+      // Table rows
+      doc.fontSize(8).font('Helvetica');
+      historyData.forEach((item: any) => {
+        // Check if we need a new page
+        if (doc.y > 720) {
+          doc.addPage();
+          doc.y = 40;
+          
+          // Repeat header on new page
+          doc.fontSize(9).font('Helvetica-Bold');
+          doc.text('Usuário', 40);
+          doc.text('Data/Hora', 180, doc.y - 9);
+          doc.text('Duração', 300, doc.y);
+          doc.text('Valor', 370, doc.y);
+          doc.text('Pagamento', 450, doc.y);
+          doc.moveDown(0.2);
+          doc.moveTo(40, doc.y).lineTo(550, doc.y).stroke();
+          doc.moveDown(0.3);
+          doc.fontSize(8).font('Helvetica');
+        }
+        
         const y = doc.y;
-        doc.text(item.user, 40, y, { width: 150 });
-        doc.text(this.formatDateTime(item.date), 190, y, { width: 120 });
-        doc.text(`R$ ${item.value.toFixed(2)}`, 310, y, { width: 80 });
-        doc.text(item.addedBy, 390, y, { width: 120 });
-        doc.moveDown(0.8);
+        
+        // Handle both usageHistory and receiptsHistory formats
+        if (item.userName) {
+          // New format: usageHistory
+          doc.text(item.userName, 40, y, { width: 135 });
+          doc.text(this.formatDateTime(item.date), 180, y, { width: 115 });
+          doc.text(`${item.duration} min`, 300, y, { width: 65 });
+          doc.text(`R$ ${item.amount.toFixed(2)}`, 370, y, { width: 75 });
+          doc.text(item.paymentMethod === 'pix' ? 'PIX' : 'Saldo', 450, y, { width: 90 });
+        } else {
+          // Old format: receiptsHistory
+          doc.text(item.user, 40, y, { width: 135 });
+          doc.text(this.formatDateTime(item.date), 180, y, { width: 115 });
+          doc.text('-', 300, y, { width: 65 });
+          doc.text(`R$ ${item.value.toFixed(2)}`, 370, y, { width: 75 });
+          doc.text(item.addedBy || '-', 450, y, { width: 90 });
+        }
+        
+        doc.moveDown(0.4);
       });
+      
+      doc.moveDown(0.8);
     }
 
-    // SECTION: Totais Finais
-    doc.addPage();
-    this.sectionTitle(doc, 'Resumo Final');
-    this.kv(doc, 'Total Líquido', `R$ ${data.totals.totalLiquid.toFixed(2)}`);
-    this.kv(doc, 'Valor em Custódia', `R$ ${data.totals.custodyValue.toFixed(2)}`);
-    this.kv(doc, 'Valor Final (Pagar/Receber)', `R$ ${data.totals.finalValue.toFixed(2)}`);
+    // --- TOTAIS FINAIS (at bottom) ---
+    if (doc.y > 680) {
+      doc.addPage();
+      doc.y = 40;
+    }
+    
+    doc.moveTo(40, doc.y).lineTo(550, doc.y).strokeColor('#000000').lineWidth(1).stroke();
+    doc.moveDown(0.8);
+    
+    doc.fontSize(11).font('Helvetica-Bold');
+    doc.text('Resumo Final', { align: 'center' });
+    doc.moveDown(0.5);
+    
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Total Líquido: R$ ${data.totals.totalLiquid.toFixed(2)}`);
+    doc.text(`Valor em Custódia: R$ ${data.totals.custodyValue.toFixed(2)}`);
+    doc.font('Helvetica-Bold');
+    doc.text(`Valor Final (Pagar/Receber): R$ ${data.totals.finalValue.toFixed(2)}`);
 
     this.addFooter(doc);
 

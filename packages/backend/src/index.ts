@@ -146,7 +146,7 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type', 
     'Authorization', 
@@ -171,13 +171,15 @@ app.use(morgan('combined', {
 }))
 
 // Enhanced rate limiting with audit logging
-app.use(auditRateLimit)
+// TEMPORARILY DISABLED FOR DEVELOPMENT
+// app.use(auditRateLimit)
 
 // Apply rate limiting to different endpoint groups
-app.use('/api', rateLimitConfigs.api)
-app.use('/auth', rateLimitConfigs.auth)
-app.use('/api/payments', rateLimitConfigs.payment)
-app.use('/api/admin', rateLimitConfigs.admin)
+// TEMPORARILY DISABLED FOR DEVELOPMENT
+// app.use('/api', rateLimitConfigs.api)
+// app.use('/auth', rateLimitConfigs.auth)
+// app.use('/api/payments', rateLimitConfigs.payment)
+// app.use('/api/admin', rateLimitConfigs.admin)
 
 // Additional security middleware for production
 if (process.env.NODE_ENV === 'production') {

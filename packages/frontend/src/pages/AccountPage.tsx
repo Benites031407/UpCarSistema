@@ -23,6 +23,8 @@ interface UsageSession {
   startTime?: string;
   endTime?: string;
   createdAt: string;
+  machineCode?: string;
+  machineLocation?: string;
 }
 
 export const AccountPage: React.FC = () => {
@@ -486,10 +488,16 @@ export const AccountPage: React.FC = () => {
                             <div className="font-semibold text-gray-900 flex items-center space-x-2">
                               <span>{session.duration} minutos</span>
                               <span className="text-gray-400">•</span>
-                              <span className="text-orange-600">Aspirador {session.machineId.slice(-6)}</span>
+                              <span className="text-orange-600">Aspirador #{session.machineCode || session.machineId.slice(-6)}</span>
                             </div>
                             <div className="text-xs text-gray-500 flex items-center space-x-2 mt-1">
                               <span>{formatDate(session.createdAt)}</span>
+                              {session.machineLocation && (
+                                <>
+                                  <span>•</span>
+                                  <span>{session.machineLocation}</span>
+                                </>
+                              )}
                               <span>•</span>
                               <span className="font-medium">{session.paymentMethod.toUpperCase()}</span>
                             </div>
