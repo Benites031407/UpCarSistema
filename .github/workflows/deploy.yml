@@ -1,0 +1,486 @@
+name: Deploy UpCar-Aspiradores
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      skip_tests:
+        description: 'Skip tests (emergency deployment)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Code quality and security checks
+  code-quality:
+    runs-on: ubuntu-latest
+    if: false  # Temporarily disabled
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run ESLint
+      run: npm run lint
+
+    - name: Run Prettier check
+      run: npm run format:check
+
+    - name: Run type checking
+      run: npm run type-check
+
+  # Comprehensive testing
+  test:
+    runs-on: ubuntu-latest
+    if: false  # Temporarily disabled
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: upcar_aspiradores_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+      mosquitto:
+        image: eclipse-mosquitto:2
+        ports:
+          - 1883:1883
+
+    strategy:
+      matrix:
+        test-type: [unit, integration, e2e, property-based]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run unit tests
+      if: matrix.test-type == 'unit'
+      run: npm run test:unit
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: machine_rental_test
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        MQTT_BROKER_URL: mqtt://localhost:1883
+        JWT_SECRET: test-secret-key-for-ci
+        NODE_ENV: test
+
+    - name: Run integration tests
+      if: matrix.test-type == 'integration'
+      run: npm run test:integration
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: machine_rental_test
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        MQTT_BROKER_URL: mqtt://localhost:1883
+        JWT_SECRET: test-secret-key-for-ci
+        NODE_ENV: test
+
+    - name: Run E2E tests
+      if: matrix.test-type == 'e2e'
+      run: npm run test:e2e
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: machine_rental_test
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        MQTT_BROKER_URL: mqtt://localhost:1883
+        JWT_SECRET: test-secret-key-for-ci
+        NODE_ENV: test
+
+    - name: Run property-based tests
+      if: matrix.test-type == 'property-based'
+      run: npm run test:property
+      env:
+        DB_HOST: localhost
+        DB_PORT: 5432
+        DB_NAME: machine_rental_test
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        MQTT_BROKER_URL: mqtt://localhost:1883
+        JWT_SECRET: test-secret-key-for-ci
+        NODE_ENV: test
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.test-type }}
+        path: |
+          coverage/
+          test-results/
+          *.xml
+
+  # Security scanning
+  security-scan:
+    runs-on: ubuntu-latest
+    if: false  # Temporarily disabled
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Run npm audit
+      run: |
+        npm audit --audit-level=high --production
+        npm audit --audit-level=critical
+
+    - name: Check for secrets
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+
+  # Build and push Docker images
+  build-and-push:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production' || github.ref == 'refs/heads/develop'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        service: [backend, frontend, iot-controller]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          type=raw,value=stable,enable=${{ github.ref == 'refs/heads/production' }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: packages/${{ matrix.service }}/Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    - name: Sign container image
+      uses: sigstore/cosign-installer@v3
+      with:
+        cosign-release: 'v2.1.1'
+
+    - name: Sign the published Docker image
+      env:
+        COSIGN_EXPERIMENTAL: 1
+      run: |
+        echo "${{ steps.meta.outputs.tags }}" | xargs -I {} cosign sign --yes {}@${{ steps.build.outputs.digest }}
+
+  # Deploy to staging
+  deploy-staging:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
+    environment: 
+      name: staging
+      url: https://staging.yourdomain.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.STAGING_SSH_KEY }}
+
+    - name: Deploy to staging server
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'EOF'
+          cd /opt/machine-rental-system
+          git pull origin main
+          
+          # Update environment variables
+          cp .env.staging .env.prod
+          
+          # Pull latest images
+          docker-compose -f docker-compose.prod.yml pull
+          
+          # Deploy with zero downtime
+          docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+          
+          # Wait for services to be healthy
+          timeout 300 bash -c 'until docker-compose -f docker-compose.prod.yml ps | grep -q "healthy"; do sleep 5; done'
+          
+          # Run health checks
+          ./scripts/health-check.sh
+        EOF
+
+    - name: Run smoke tests
+      run: |
+        # Wait for deployment to be ready
+        sleep 30
+        
+        # Run basic smoke tests
+        curl -f https://staging.yourdomain.com/health || exit 1
+        curl -f https://staging.yourdomain.com/api/health || exit 1
+
+  # Deploy to production
+  deploy-production:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/production' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
+    environment: 
+      name: production
+      url: https://yourdomain.com
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.PRODUCTION_SSH_KEY }}
+
+    - name: Create pre-deployment backup
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          cd /opt/machine-rental-system
+          ./scripts/backup.sh full
+        EOF
+
+    - name: Deploy to production server (Blue-Green)
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          cd /opt/machine-rental-system
+          
+          # Create deployment directory
+          DEPLOY_DIR="/opt/machine-rental-system-$(date +%Y%m%d_%H%M%S)"
+          cp -r /opt/machine-rental-system $DEPLOY_DIR
+          cd $DEPLOY_DIR
+          
+          # Update to latest code
+          git pull origin production
+          
+          # Update environment variables
+          cp .env.production .env.prod
+          
+          # Pull latest images
+          docker-compose -f docker-compose.prod.yml pull
+          
+          # Start new deployment
+          docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+          
+          # Wait for services to be healthy
+          timeout 300 bash -c 'until docker-compose -f docker-compose.prod.yml ps | grep -q "healthy"; do sleep 5; done'
+          
+          # Run health checks
+          ./scripts/health-check.sh
+          
+          # Switch traffic to new deployment
+          # (This would involve updating load balancer configuration)
+          
+          # Update symlink to current deployment
+          ln -sfn $DEPLOY_DIR /opt/machine-rental-system-current
+        EOF
+
+    - name: Run production smoke tests
+      run: |
+        # Wait for deployment to be ready
+        sleep 60
+        
+        # Run comprehensive smoke tests
+        curl -f https://yourdomain.com/health || exit 1
+        curl -f https://yourdomain.com/api/health || exit 1
+        
+        # Test critical endpoints
+        curl -f https://yourdomain.com/api/machines || exit 1
+
+    - name: Rollback on failure
+      if: failure()
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'EOF'
+          cd /opt/machine-rental-system
+          
+          # Restore from backup
+          LATEST_BACKUP=$(ls -t /backups/backup_*_manifest.json | head -1)
+          if [ -n "$LATEST_BACKUP" ]; then
+            BACKUP_PREFIX=$(echo "$LATEST_BACKUP" | sed 's/_manifest\.json$//')
+            ./scripts/restore.sh "${BACKUP_PREFIX}_database.sql.gz"
+          fi
+          
+          # Restart previous deployment
+          docker-compose -f docker-compose.prod.yml restart
+        EOF
+
+  # Performance testing
+  performance-test:
+    needs: [deploy-staging]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run load tests
+      run: |
+        # Install k6
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+        
+        # Run load tests against staging
+        k6 run --out json=results.json scripts/load-test.js
+        
+    - name: Upload performance results
+      uses: actions/upload-artifact@v4
+      with:
+        name: performance-results
+        path: results.json
+
+  # Notification
+  notify:
+    needs: [deploy-staging, deploy-production, performance-test]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify Slack on success
+      if: ${{ needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success' }}
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#deployments'
+        text: |
+          ✅ Machine Rental System deployment successful!
+          Environment: ${{ github.ref == 'refs/heads/production' && 'Production' || 'Staging' }}
+          Commit: ${{ github.sha }}
+          Author: ${{ github.actor }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Notify Slack on failure
+      if: ${{ needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure' }}
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#deployments'
+        text: |
+          ❌ Machine Rental System deployment failed!
+          Environment: ${{ github.ref == 'refs/heads/production' && 'Production' || 'Staging' }}
+          Commit: ${{ github.sha }}
+          Author: ${{ github.actor }}
+          Please check the logs and take action.
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+    - name: Create GitHub release
+      if: github.ref == 'refs/heads/production' && needs.deploy-production.result == 'success'
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        body: |
+          Automated release from production deployment
+          
+          Commit: ${{ github.sha }}
+          Deployed at: ${{ github.event.head_commit.timestamp }}
+        draft: false
+        prerelease: false

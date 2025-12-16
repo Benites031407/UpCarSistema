@@ -1,0 +1,65 @@
+# Frontend Dockerfile
+FROM node:18-alpine AS base
+
+# Install dependencies only when needed
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY packages/frontend/package*.json ./packages/frontend/
+RUN npm ci --only=production && npm cache clean --force
+
+# Build the application
+FROM base AS builder
+WORKDIR /app
+
+# Accept build arguments
+ARG VITE_API_URL
+ARG VITE_MERCADO_PAGO_PUBLIC_KEY
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_MERCADO_PAGO_PUBLIC_KEY=${VITE_MERCADO_PAGO_PUBLIC_KEY}
+
+COPY package*.json ./
+COPY packages/frontend/package*.json ./packages/frontend/
+RUN npm ci
+
+# Copy source code
+COPY packages/frontend ./packages/frontend
+COPY tsconfig.json ./
+
+# Build the application
+WORKDIR /app/packages/frontend
+RUN npm run build
+
+# Production image - use nginx to serve static files
+FROM nginx:alpine AS runner
+
+# Copy built application
+COPY --from=builder /app/packages/frontend/dist /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY packages/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S frontend -u 1001
+
+# Set proper permissions
+RUN chown -R frontend:nodejs /usr/share/nginx/html
+RUN chown -R frontend:nodejs /var/cache/nginx
+RUN chown -R frontend:nodejs /var/log/nginx
+RUN chown -R frontend:nodejs /etc/nginx/conf.d
+RUN touch /var/run/nginx.pid
+RUN chown -R frontend:nodejs /var/run/nginx.pid
+
+USER frontend
+
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

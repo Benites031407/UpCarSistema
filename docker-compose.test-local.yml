@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  redis-test:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-test-data:/data
+    restart: unless-stopped
+
+  mosquitto-test:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1884:1883"
+      - "9002:9001"
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: unless-stopped
+
+volumes:
+  redis-test-data:
