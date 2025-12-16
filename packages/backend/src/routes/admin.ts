@@ -155,10 +155,10 @@ router.get('/sessions/active', async (_req: express.Request, res: express.Respon
 /**
  * GET /api/admin/machines
  * Get all machines for registry management
- * Optional query param: ?code=123456 to filter by machine code
+ * Optional query param: ?code=12345 to filter by machine code
  */
 router.get('/machines', [
-  query('code').optional().isString().matches(/^[0-9]{1,6}$/),
+  query('code').optional().isString().matches(/^[0-9]{1,5}$/),
 ], async (req: express.Request, res: express.Response) => {
   try {
     const errors = validationResult(req);
@@ -189,7 +189,7 @@ router.get('/machines', [
  * Register a new machine
  */
 router.post('/machines', [
-  body('code').isString().matches(/^[0-9]{1,6}$/).withMessage('Code must be 1-6 digits only'),
+  body('code').isString().matches(/^[0-9]{1,5}$/).withMessage('Code must be 1-5 digits only'),
   body('location').isString().isLength({ min: 1, max: 255 }),
   body('controllerId').isString().isLength({ min: 1, max: 100 }),
   body('operatingHours.start').matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
@@ -1206,6 +1206,47 @@ router.get('/reports/export',
       res.status(500).json({
         success: false,
         error: 'Failed to generate report',
+        details: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/admin/reports/machine/:id
+ * Export individual machine report as PDF
+ */
+router.get('/reports/machine/:id',
+  query('startDate').isISO8601(),
+  query('endDate').isISO8601(),
+  async (req: express.Request, res: express.Response) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ success: false, errors: errors.array() });
+      return;
+    }
+
+    try {
+      const { id } = req.params;
+      const { startDate, endDate } = req.query;
+      const { PuppeteerPDFGenerator } = await import('../services/pdfGeneratorPuppeteer.js');
+      const { ReportsRepository } = await import('../repositories/reports.js');
+
+      const data = await ReportsRepository.getMachineReportData(id, {
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+
+      const pdfBuffer = await PuppeteerPDFGenerator.generateMachineReport(data);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=Repasse-UpCar-${data.machine.number}.pdf`);
+      res.send(pdfBuffer);
+    } catch (error: any) {
+      logger.error('Error generating machine report:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to generate machine report',
         details: error.message,
       });
     }

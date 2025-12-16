@@ -11,10 +11,10 @@ export const HomePage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleManualEntry = () => {
-    if (machineCode.length === 6) {
+    if (machineCode.length === 5) {
       navigate(`/machine/${machineCode.toUpperCase()}`);
     } else {
-      setError('O código deve ter 6 caracteres');
+      setError('O código deve ter 5 caracteres');
     }
   };
 
@@ -219,9 +219,9 @@ export const HomePage: React.FC = () => {
           <div className="flex justify-between items-center">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 hover:bg-orange-700 rounded-lg transition-colors"
+              className="p-3 hover:bg-orange-700 rounded-lg transition-colors"
             >
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
@@ -254,10 +254,6 @@ export const HomePage: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Digite o código do Aspirador
             </h2>
-            <p className="text-gray-600 text-sm">
-              Digite o código de identificação do aspirador.<br />
-              O mesmo encontra-se acima do QR-Code escaneado.
-            </p>
           </div>
 
           {/* Error Message */}
@@ -289,7 +285,7 @@ export const HomePage: React.FC = () => {
                 inputMode="numeric"
                 value={machineCode}
                 onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                  const value = e.target.value.replace(/\D/g, '').slice(0, 5);
                   setMachineCode(value);
                   setError('');
                 }}
@@ -298,22 +294,19 @@ export const HomePage: React.FC = () => {
                     handleManualEntry();
                   }
                 }}
-                placeholder="123456"
+                placeholder="12345"
                 className="block w-full px-6 py-4 border-2 border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-center text-2xl font-bold tracking-widest"
-                maxLength={6}
+                maxLength={5}
                 autoFocus
               />
-              <p className="text-xs text-gray-500 text-center mt-2">
-                {machineCode.length > 0 ? `${machineCode.length} dígito${machineCode.length > 1 ? 's' : ''}` : 'Digite apenas números'}
-              </p>
             </div>
             
             <button
               onClick={handleManualEntry}
-              disabled={machineCode.length === 0}
+              disabled={machineCode.length < 5}
               className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg text-lg"
             >
-              {machineCode.length > 0 ? 'Acessar Aspirador →' : 'Digite o código'}
+              Acessar Aspirador
             </button>
           </div>
         </div>

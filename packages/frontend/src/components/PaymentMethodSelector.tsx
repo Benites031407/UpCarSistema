@@ -94,48 +94,46 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
       <h3 className="text-lg font-bold text-gray-900 text-center mb-4">Método de Pagamento</h3>
       
       <div className="space-y-3">
-        {/* Account Balance Option - Highlighted when available */}
-        {paymentOptions.canUseBalance && paymentOptions.pixAmount === 0 && (
-          <button
-            type="button"
-            className={`
-              w-full p-4 rounded-xl border-2 transition-all text-left
-              ${selectedMethod === 'balance'
-                ? 'border-green-500 bg-green-50 shadow-lg scale-[1.02]'
-                : 'border-gray-300 bg-white hover:border-green-400 hover:bg-green-50'
-              }
-              ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-            `}
-            onClick={() => !disabled && handleMethodChange('balance')}
-            disabled={disabled}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  selectedMethod === 'balance' ? 'bg-green-500' : 'bg-green-100'
-                }`}>
-                  <svg className={`w-6 h-6 ${selectedMethod === 'balance' ? 'text-white' : 'text-green-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="font-bold text-gray-900">
-                    Saldo da Conta
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Saldo disponível: {formatCurrency(user?.accountBalance || 0)}
-                  </div>
-                </div>
+        {/* Account Balance Option - Always show */}
+        <button
+          type="button"
+          className={`
+            w-full p-4 rounded-xl border-2 transition-all text-left
+            ${selectedMethod === 'balance'
+              ? 'border-orange-500 bg-orange-50 shadow-lg scale-[1.02]'
+              : 'border-gray-300 bg-white hover:border-orange-400 hover:bg-orange-50'
+            }
+            ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+          `}
+          onClick={() => !disabled && handleMethodChange('balance')}
+          disabled={disabled}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                selectedMethod === 'balance' ? 'bg-orange-500' : 'bg-orange-100'
+              }`}>
+                <svg className={`w-6 h-6 ${selectedMethod === 'balance' ? 'text-white' : 'text-orange-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
               </div>
-              <div className="text-right">
-                <div className="font-bold text-green-600 text-lg">
-                  {formatCurrency(amount)}
+              <div>
+                <div className="font-bold text-gray-900">
+                  Saldo da Conta
                 </div>
-                <div className="text-xs text-green-600 font-medium">Instantâneo</div>
+                <div className="text-sm text-gray-600">
+                  Saldo disponível: {formatCurrency(user?.accountBalance || 0)}
+                </div>
               </div>
             </div>
-          </button>
-        )}
+            <div className="text-right">
+              <div className="font-bold text-orange-600 text-lg">
+                {formatCurrency(amount)}
+              </div>
+              <div className="text-xs text-orange-600 font-medium">Instantâneo</div>
+            </div>
+          </div>
+        </button>
 
         {/* Mixed Payment Option */}
         {paymentOptions.canUseBalance && paymentOptions.pixAmount > 0 && (
@@ -184,8 +182,8 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
           className={`
             w-full p-4 rounded-xl border-2 transition-all text-left
             ${selectedMethod === 'pix'
-              ? 'border-blue-500 bg-blue-50 shadow-lg scale-[1.02]'
-              : 'border-gray-300 bg-white hover:border-blue-400 hover:bg-blue-50'
+              ? 'border-orange-500 bg-orange-50 shadow-lg scale-[1.02]'
+              : 'border-gray-300 bg-white hover:border-orange-400 hover:bg-orange-50'
             }
             ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           `}
@@ -195,9 +193,9 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                selectedMethod === 'pix' ? 'bg-blue-500' : 'bg-blue-100'
+                selectedMethod === 'pix' ? 'bg-orange-500' : 'bg-orange-100'
               }`}>
-                <svg className={`w-6 h-6 ${selectedMethod === 'pix' ? 'text-white' : 'text-blue-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className={`w-6 h-6 ${selectedMethod === 'pix' ? 'text-white' : 'text-orange-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                 </svg>
               </div>
@@ -206,7 +204,7 @@ export const PaymentMethodSelector: React.FC<PaymentMethodSelectorProps> = ({
               </div>
             </div>
             <div className="text-right">
-              <div className="font-bold text-blue-600 text-lg">
+              <div className="font-bold text-orange-600 text-lg">
                 {formatCurrency(amount)}
               </div>
             </div>

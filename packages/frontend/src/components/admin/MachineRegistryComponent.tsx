@@ -236,6 +236,36 @@ export const MachineRegistryComponent: React.FC = () => {
     }
   };
 
+  const handleDownloadReport = async (machine: Machine) => {
+    try {
+      // Get date range (last 30 days by default)
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+
+      const response = await api.get(`/admin/reports/machine/${machine.id}`, {
+        params: {
+          startDate: startDate.toISOString().split('T')[0],
+          endDate: endDate.toISOString().split('T')[0],
+        },
+        responseType: 'blob',
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Repasse-${machine.code}-${startDate.toISOString().split('T')[0]}-${endDate.toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Error downloading report:', error);
+      alert('Erro ao baixar relatório. Por favor, tente novamente.');
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       code: '',
@@ -760,6 +790,15 @@ export const MachineRegistryComponent: React.FC = () => {
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDownloadReport(machine)}
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
+                            title="Baixar Relatório de Repasse (últimos 30 dias)"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                           </button>
                           {machine.currentOperatingHours >= machine.maintenanceInterval && (

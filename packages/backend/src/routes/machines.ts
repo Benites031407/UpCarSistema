@@ -43,8 +43,8 @@ async function generateUniqueCode(): Promise<string> {
   const maxAttempts = 10;
   
   do {
-    // Generate 6-character alphanumeric code
-    code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    // Generate 5-character alphanumeric code
+    code = Math.random().toString(36).substring(2, 7).toUpperCase();
     attempts++;
     
     if (attempts >= maxAttempts) {
@@ -141,19 +141,19 @@ router.get('/code/:code', async (req, res) => {
     if (!code || typeof code !== 'string') {
       return res.status(400).json({ 
         success: false,
-        error: 'Machine code is required. Please scan the QR code or enter the 6-character code.',
+        error: 'Machine code is required. Please scan the QR code or enter the 5-character code.',
         code: 'MACHINE_CODE_REQUIRED'
       });
     }
 
     const sanitizedCode = code.trim().toUpperCase();
     
-    if (sanitizedCode.length !== 6) {
+    if (sanitizedCode.length !== 5) {
       return res.status(400).json({ 
         success: false,
-        error: sanitizedCode.length < 6 
-          ? `Machine code is too short. Please enter all 6 characters (you entered ${sanitizedCode.length}).`
-          : `Machine code is too long. Please enter exactly 6 characters (you entered ${sanitizedCode.length}).`,
+        error: sanitizedCode.length < 5 
+          ? `Machine code is too short. Please enter all 5 characters (you entered ${sanitizedCode.length}).`
+          : `Machine code is too long. Please enter exactly 5 characters (you entered ${sanitizedCode.length}).`,
         code: 'INVALID_MACHINE_CODE_LENGTH'
       });
     }

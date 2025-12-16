@@ -114,61 +114,6 @@ export const AnalyticsComponent: React.FC = () => {
     }
   };
 
-  const handleExportAllMachines = async () => {
-    setIsExporting(true);
-    try {
-      const params = new URLSearchParams({
-        startDate: dateRange.startDate,
-        endDate: dateRange.endDate,
-      });
-      
-      // Add a small delay to ensure token is fresh
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const response = await api.get(`/admin/reports/export-all-machines?${params}`, {
-        responseType: 'blob',
-        timeout: 60000, // 60 seconds for ZIP generation
-      });
-
-      // Create a download link
-      const blob = new Blob([response.data], { type: 'application/zip' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      
-      // Format dates for filename (DD-MM-YYYY)
-      const formattedStartDate = new Date(dateRange.startDate).toLocaleDateString('pt-BR').replace(/\//g, '-');
-      const formattedEndDate = new Date(dateRange.endDate).toLocaleDateString('pt-BR').replace(/\//g, '-');
-      
-      // Use backend's filename from Content-Disposition header if available
-      const contentDisposition = response.headers['content-disposition'];
-      if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-        if (filenameMatch && filenameMatch[1]) {
-          link.download = filenameMatch[1].replace(/['"]/g, '');
-        } else {
-          link.download = `Relatorios-Aspiradores-${formattedStartDate}-${formattedEndDate}.zip`;
-        }
-      } else {
-        link.download = `Relatorios-Aspiradores-${formattedStartDate}-${formattedEndDate}.zip`;
-      }
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error: any) {
-      console.error('Error downloading reports:', error);
-      if (error.response?.status === 401) {
-        alert('Sessão expirada. Por favor, faça login novamente.');
-      } else {
-        alert('Erro ao baixar relatórios. Por favor, tente novamente.');
-      }
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -213,16 +158,6 @@ export const AnalyticsComponent: React.FC = () => {
             </svg>
             <span className="hidden sm:inline">Relatório de Mensalistas</span>
             <span className="sm:hidden">Mensalistas</span>
-          </button>
-          <button
-            onClick={handleExportAllMachines}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center text-sm lg:text-base shadow-lg"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span className="hidden sm:inline">Repasses - Todos os Aspiradores (ZIP)</span>
-            <span className="sm:hidden">Repasses (ZIP)</span>
           </button>
         </div>
       </div>

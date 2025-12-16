@@ -57,6 +57,7 @@ export const MachineActivationPage: React.FC = () => {
   const [showPixModal, setShowPixModal] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [checkingPayment, setCheckingPayment] = useState(false);
+  const [showInsufficientBalanceModal, setShowInsufficientBalanceModal] = useState(false);
 
   // Real-time session monitoring
   const {
@@ -136,6 +137,12 @@ export const MachineActivationPage: React.FC = () => {
 
     if (!machine || !availability?.available) {
       setError('Machine is not available for activation');
+      return;
+    }
+
+    // Check if user has insufficient balance when using balance payment
+    if (paymentMethod === 'balance' && user && user.accountBalance < duration) {
+      setShowInsufficientBalanceModal(true);
       return;
     }
 
@@ -266,12 +273,24 @@ export const MachineActivationPage: React.FC = () => {
 
   if (error && !machine) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4">
+      <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-400 flex flex-col justify-center py-12 px-4">
         <div className="max-w-md mx-auto text-center">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h2 className="text-lg font-medium text-red-900 mb-2">Aspirador Não Encontrado</h2>
-            <p className="text-red-700 mb-4">{error}</p>
-            <Link to="/" className="btn-primary">
+          <div className="bg-white rounded-2xl shadow-2xl p-8">
+            <div className="mb-6">
+              <div className="mx-auto w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">Aspirador Não Encontrado</h2>
+              <p className="text-gray-600 text-sm mb-6">
+                O código digitado não corresponde a nenhum aspirador cadastrado no sistema.
+              </p>
+            </div>
+            <Link 
+              to="/" 
+              className="inline-block w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl"
+            >
               Voltar para Início
             </Link>
           </div>
@@ -574,28 +593,10 @@ export const MachineActivationPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. Vacuuming Price */}
-            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-4 text-center">
-              <p className="text-orange-100 text-xs font-medium mb-1">Preço da Aspiração</p>
-              <div className="text-white text-3xl font-bold mb-1">{formatCurrency(duration)}</div>
-              <p className="text-orange-100 text-xs">{duration} minutos de uso</p>
-            </div>
-
-
-
-            {/* Payment Method */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
-              <PaymentMethodSelector
-                amount={duration}
-                onPaymentMethodChange={handlePaymentMethodChange}
-                disabled={processing}
-              />
-            </div>
-
             {/* 5. Initiate Button */}
             <button
               onClick={handleActivation}
-              disabled={processing || (user && user.accountBalance < duration && paymentMethod === 'balance')}
+              disabled={processing}
               className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold py-6 px-6 rounded-2xl transition-all shadow-2xl hover:shadow-3xl disabled:opacity-50 disabled:cursor-not-allowed text-xl"
             >
               {processing ? (
@@ -616,6 +617,15 @@ export const MachineActivationPage: React.FC = () => {
                 </span>
               )}
             </button>
+
+            {/* Payment Method */}
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
+              <PaymentMethodSelector
+                amount={duration}
+                onPaymentMethodChange={handlePaymentMethodChange}
+                disabled={processing}
+              />
+            </div>
           </div>
         )}
 
@@ -679,13 +689,12 @@ export const MachineActivationPage: React.FC = () => {
             <p className="text-gray-600 mb-4">
               {!availability?.withinOperatingHours && 'Fora do horário de funcionamento'}
               {availability?.status === 'maintenance' && 'Este aspirador está em manutenção'}
-              {availability?.status === 'offline' && 'Este aspirador está desligado ou sem conexão'}
               {availability?.status === 'in_use' && 'Este aspirador está sendo usado no momento'}
             </p>
             {availability?.status === 'offline' && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
                 <p className="text-sm text-red-800">
-                  <strong>Aspirador Offline:</strong> O equipamento está desligado ou sem conexão com a internet. Por favor, tente outro aspirador ou aguarde até que este volte a ficar online.
+                  Por favor, tente novamente após 5 minutos
                 </p>
               </div>
             )}
@@ -1018,6 +1027,65 @@ export const MachineActivationPage: React.FC = () => {
             >
               Fechar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Insufficient Balance Modal */}
+      {showInsufficientBalanceModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-100 rounded-full mb-3">
+                <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Saldo Insuficiente</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Você não possui créditos suficientes para esta aspiração.
+              </p>
+              
+              <div className="bg-orange-50 border-2 border-orange-200 rounded-lg p-4 mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-600">Saldo atual:</span>
+                  <span className="text-lg font-bold text-gray-900">{formatCurrency(user?.accountBalance || 0)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Valor necessário:</span>
+                  <span className="text-lg font-bold text-orange-600">{formatCurrency(duration)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {/* Add Credits Button */}
+              <button
+                onClick={() => navigate('/add-credit')}
+                className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl"
+              >
+                Adicionar Créditos
+              </button>
+
+              {/* Use PIX Instead Button */}
+              <button
+                onClick={() => {
+                  setShowInsufficientBalanceModal(false);
+                  setPaymentMethod('pix');
+                }}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all"
+              >
+                Pagar com PIX
+              </button>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setShowInsufficientBalanceModal(false)}
+                className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-xl transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
