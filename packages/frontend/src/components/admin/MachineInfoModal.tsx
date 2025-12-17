@@ -231,7 +231,7 @@ export const MachineInfoModal: React.FC<MachineInfoModalProps> = ({
                   <div>
                     <p className="text-sm text-gray-600">Horas até Manutenção</p>
                     <p className={`text-lg font-semibold ${stats.maintenance.maintenanceRequired ? 'text-red-600' : 'text-gray-900'}`}>
-                      {stats.maintenance.hoursUntilMaintenance}h
+                      {stats.maintenance.hoursUntilMaintenance.toFixed(1)}h
                     </p>
                     {stats.maintenance.maintenanceRequired && (
                       <p className="text-xs text-red-600 font-medium">Manutenção Necessária!</p>

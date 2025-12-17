@@ -61,6 +61,7 @@ export const MachineRegistryComponent: React.FC = () => {
   const [selectedMachineForInfo, setSelectedMachineForInfo] = useState<Machine | null>(null);
   const [selectedMachineForQR, setSelectedMachineForQR] = useState<Machine | null>(null);
   const [errorModal, setErrorModal] = useState<ErrorModalData | null>(null);
+  const [downloadingReport, setDownloadingReport] = useState(false);
   const [formData, setFormData] = useState<MachineFormData>({
     code: '',
     location: '',
@@ -237,6 +238,7 @@ export const MachineRegistryComponent: React.FC = () => {
   };
 
   const handleDownloadReport = async (machine: Machine) => {
+    setDownloadingReport(true);
     try {
       // Get date range (last 30 days by default)
       const endDate = new Date();
@@ -263,6 +265,8 @@ export const MachineRegistryComponent: React.FC = () => {
     } catch (error: any) {
       console.error('Error downloading report:', error);
       alert('Erro ao baixar relatório. Por favor, tente novamente.');
+    } finally {
+      setDownloadingReport(false);
     }
   };
 
@@ -391,6 +395,7 @@ export const MachineRegistryComponent: React.FC = () => {
             {editingMachine ? 'Editar Máquina' : 'Registrar Nova Máquina'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Machine Identification */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
@@ -400,21 +405,38 @@ export const MachineRegistryComponent: React.FC = () => {
                   type="text"
                   value={formData.code}
                   onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 5);
                     setFormData({ ...formData, code: value });
                   }}
                   disabled={!!editingMachine}
-                  pattern="[0-9]{1,6}"
-                  maxLength={6}
-                  placeholder="Ex: 123456"
+                  pattern="[0-9]{1,5}"
+                  maxLength={5}
+                  placeholder="Ex: 12345"
                   className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
                   required
                 />
-                <p className="mt-1 text-xs text-gray-500">Apenas números, máximo 6 dígitos</p>
+                <p className="mt-1 text-xs text-gray-500">Apenas números, máximo 5 dígitos</p>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Localização
+                  ID do Controlador
+                </label>
+                <input
+                  type="text"
+                  value={formData.controllerId}
+                  onChange={(e) => setFormData({ ...formData, controllerId: e.target.value })}
+                  disabled={!!editingMachine}
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Location Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Endereço
                 </label>
                 <input
                   type="text"
@@ -436,32 +458,10 @@ export const MachineRegistryComponent: React.FC = () => {
                   placeholder="Ex: São Paulo"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  ID do Controlador
-                </label>
-                <input
-                  type="text"
-                  value={formData.controllerId}
-                  onChange={(e) => setFormData({ ...formData, controllerId: e.target.value })}
-                  disabled={!!editingMachine}
-                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                  Intervalo de Manutenção (horas)
-                </label>
-                <input
-                  type="number"
-                  value={formData.maintenanceInterval}
-                  onChange={(e) => setFormData({ ...formData, maintenanceInterval: Number(e.target.value) })}
-                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
-                  min="1"
-                  required
-                />
-              </div>
+            </div>
+
+            {/* Operating Hours */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Horário de Início
@@ -486,6 +486,10 @@ export const MachineRegistryComponent: React.FC = () => {
                   required
                 />
               </div>
+            </div>
+
+            {/* Pricing and Duration */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Preço por Minuto (R$)
@@ -517,6 +521,10 @@ export const MachineRegistryComponent: React.FC = () => {
                 />
                 <p className="mt-1 text-xs text-gray-500">Tempo máximo de uso permitido (1-120 minutos)</p>
               </div>
+            </div>
+
+            {/* Energy Configuration */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Consumo de Energia (Watts)
@@ -548,6 +556,10 @@ export const MachineRegistryComponent: React.FC = () => {
                 />
                 <p className="mt-1 text-xs text-gray-500">Custo por kWh de energia elétrica</p>
               </div>
+            </div>
+
+            {/* Revenue Distribution */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1">
                   Cota do Proprietário (%)
@@ -579,6 +591,23 @@ export const MachineRegistryComponent: React.FC = () => {
                   required
                 />
                 <p className="mt-1 text-xs text-gray-500">Percentual da receita para custos operacionais (0-100%)</p>
+              </div>
+            </div>
+
+            {/* Maintenance */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Intervalo de Manutenção (horas)
+                </label>
+                <input
+                  type="number"
+                  value={formData.maintenanceInterval}
+                  onChange={(e) => setFormData({ ...formData, maintenanceInterval: Number(e.target.value) })}
+                  className="block w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors"
+                  min="1"
+                  required
+                />
               </div>
             </div>
             <div className="flex justify-end space-x-3 pt-2">
@@ -967,6 +996,21 @@ export const MachineRegistryComponent: React.FC = () => {
               >
                 Entendi
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download Report Loading Modal */}
+      {downloadingReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex flex-col items-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-orange-600 mb-4"></div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Gerando Relatório</h3>
+              <p className="text-sm text-gray-600 text-center">
+                Por favor, aguarde enquanto o relatório de repasse está sendo gerado...
+              </p>
             </div>
           </div>
         </div>

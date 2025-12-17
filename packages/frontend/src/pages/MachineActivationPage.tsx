@@ -111,6 +111,13 @@ export const MachineActivationPage: React.FC = () => {
     }
   }, [code]);
 
+  // Redirect to login if user is not authenticated
+  useEffect(() => {
+    if (!user && !loading) {
+      navigate(`/login?returnTo=/machine/${code}`, { replace: true });
+    }
+  }, [user, loading, code, navigate]);
+
   const fetchMachineInfo = async () => {
     try {
       setLoading(true);
@@ -300,7 +307,14 @@ export const MachineActivationPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-400">
+    <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-400 relative overflow-hidden">
+      {/* Animated background circles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
+        <div className="absolute w-64 h-64 bg-white/10 rounded-full top-1/4 -right-32 animate-bounce" style={{ animationDuration: '3s' }}></div>
+        <div className="absolute w-80 h-80 bg-orange-600/10 rounded-full bottom-0 left-1/4 animate-pulse" style={{ animationDelay: '1s' }}></div>
+      </div>
+
       {/* Sidebar Overlay */}
       {sidebarOpen && user && (
         <div 
@@ -387,7 +401,8 @@ export const MachineActivationPage: React.FC = () => {
                   <span className="font-medium">Configurações da Conta</span>
                 </button>
 
-                <div className="border-t border-gray-200 my-4"></div>
+                {/* Temporarily hidden until subscription feature is fully working */}
+                {/* <div className="border-t border-gray-200 my-4"></div>
 
                 <button
                   onClick={() => {
@@ -400,7 +415,7 @@ export const MachineActivationPage: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className="font-medium">Assinatura Mensal</span>
-                </button>
+                </button> */}
 
                 <div className="border-t border-gray-200 my-4"></div>
 
@@ -489,7 +504,7 @@ export const MachineActivationPage: React.FC = () => {
       )}
 
       {/* Header */}
-      <header className="bg-gradient-to-r from-orange-600 to-orange-500 shadow-lg sticky top-0 z-30">
+      <header className="bg-gradient-to-r from-orange-600 to-orange-500 shadow-lg sticky top-0 z-30 relative">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             {user ? (
@@ -529,7 +544,7 @@ export const MachineActivationPage: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 pb-20">
+      <main className="max-w-lg mx-auto px-4 py-6 pb-20 relative z-10">
         {/* Error Message */}
         {error && (
           <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
@@ -597,7 +612,7 @@ export const MachineActivationPage: React.FC = () => {
             <button
               onClick={handleActivation}
               disabled={processing}
-              className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold py-6 px-6 rounded-2xl transition-all shadow-2xl hover:shadow-3xl disabled:opacity-50 disabled:cursor-not-allowed text-xl"
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-6 px-6 rounded-2xl transition-all shadow-2xl hover:shadow-3xl disabled:opacity-50 disabled:cursor-not-allowed text-xl"
             >
               {processing ? (
                 <span className="flex items-center justify-center">
@@ -636,36 +651,7 @@ export const MachineActivationPage: React.FC = () => {
           </div>
         )}
 
-        {/* Login Prompt */}
-        {!user && (
-          <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-100 rounded-full mb-4">
-              <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              Entre para continuar
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Você precisa estar logado para usar o aspirador
-            </p>
-            <div className="space-y-3">
-              <Link 
-                to={`/login?returnTo=/machine/${code}`}
-                className="block w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg"
-              >
-                Entrar
-              </Link>
-              <Link 
-                to={`/register?returnTo=/machine/${code}`}
-                className="block w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-3 px-6 rounded-xl transition-all"
-              >
-                Criar Conta
-              </Link>
-            </div>
-          </div>
-        )}
+        {/* Redirecting to login - no UI needed as redirect happens automatically */}
 
         {/* Machine Not Available */}
         {machine && !availability?.available && user && (

@@ -81,6 +81,12 @@ export const AddCreditPage: React.FC = () => {
     setPixPaymentData(null);
     setCreditAmount('');
     setWaitingForPayment(false);
+    
+    // Show waiting message when user closes modal
+    setMessage({ 
+      type: 'success', 
+      text: 'Aguardando confirmação do pagamento. Você será notificado quando o pagamento for confirmado.' 
+    });
   };
 
   const handleCreditCardSuccess = async (token: string, installments: number) => {
@@ -149,61 +155,66 @@ export const AddCreditPage: React.FC = () => {
 
   // WebSocket listener for payment confirmation
   useEffect(() => {
-    if (!socket || !isConnected || !pixPaymentData) return;
+    if (!socket || !isConnected) return;
 
     const handlePaymentConfirmed = async (data: any) => {
       console.log('Payment confirmed via WebSocket:', data);
       
-      // Check if this is the payment we're waiting for
-      if (data.paymentId === pixPaymentData.id) {
-        setWaitingForPayment(false);
-        setMessage({ 
-          type: 'success', 
-          text: `Pagamento confirmado! ${formatCurrency(data.amount)} adicionado à sua conta.` 
-        });
-        
-        // Refresh user data to show new balance
-        await refreshUser();
-        
-        // Close modal after a short delay
-        setTimeout(() => {
-          handleClosePixModal();
-        }, 2000);
-      }
+      setWaitingForPayment(false);
+      setMessage({ 
+        type: 'success', 
+        text: `Pagamento confirmado! ${formatCurrency(data.amount)} adicionado à sua conta.` 
+      });
+      
+      // Refresh user data to show new balance
+      await refreshUser();
+      
+      // Close modal and redirect to homepage
+      setShowPixModal(false);
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
     };
 
     const handlePaymentFailed = (data: any) => {
       console.log('Payment failed via WebSocket:', data);
       
-      if (data.paymentId === pixPaymentData.id) {
-        setWaitingForPayment(false);
-        setMessage({ 
-          type: 'error', 
-          text: 'Pagamento não foi aprovado. Por favor, tente novamente.' 
-        });
-      }
+      setWaitingForPayment(false);
+      setMessage({ 
+        type: 'error', 
+        text: 'Pagamento não foi aprovado. Por favor, tente novamente.' 
+      });
     };
 
     // Listen for payment events
     socket.on('payment-confirmed', handlePaymentConfirmed);
     socket.on('payment-failed', handlePaymentFailed);
 
-    // Set waiting state when modal opens
-    if (showPixModal) {
-      setWaitingForPayment(true);
-    }
-
     // Cleanup listeners
     return () => {
       socket.off('payment-confirmed', handlePaymentConfirmed);
       socket.off('payment-failed', handlePaymentFailed);
     };
-  }, [socket, isConnected, pixPaymentData, showPixModal, refreshUser]);
+  }, [socket, isConnected, showPixModal, refreshUser, navigate]);
+
+  // Set waiting state when PIX modal opens
+  useEffect(() => {
+    if (showPixModal && pixPaymentData) {
+      setWaitingForPayment(true);
+    }
+  }, [showPixModal, pixPaymentData]);
 
   const quickAmounts = [10, 20, 50, 100];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-400">
+    <div className="min-h-screen bg-gradient-to-b from-orange-500 to-orange-400 relative overflow-hidden">
+      {/* Animated background circles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
+        <div className="absolute w-64 h-64 bg-white/10 rounded-full top-1/4 -right-32 animate-bounce" style={{ animationDuration: '3s' }}></div>
+        <div className="absolute w-80 h-80 bg-orange-600/10 rounded-full bottom-0 left-1/4 animate-pulse" style={{ animationDelay: '1s' }}></div>
+      </div>
+
       {/* Header */}
       <header className="bg-gradient-to-r from-orange-600 to-orange-500 shadow-lg sticky top-0 z-30">
         <div className="max-w-4xl mx-auto px-4 py-4">

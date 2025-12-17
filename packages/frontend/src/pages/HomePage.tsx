@@ -32,7 +32,14 @@ export const HomePage: React.FC = () => {
 
   // If user is logged in, show machine access page
   return (
-    <div className="min-h-screen bg-orange-500">
+    <div className="min-h-screen bg-orange-500 relative overflow-hidden">
+      {/* Animated background circles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute w-96 h-96 bg-white/20 rounded-full -top-48 -left-48 animate-pulse"></div>
+        <div className="absolute w-64 h-64 bg-white/10 rounded-full top-1/4 -right-32 animate-bounce" style={{ animationDuration: '3s' }}></div>
+        <div className="absolute w-80 h-80 bg-orange-600/10 rounded-full bottom-0 left-1/4 animate-pulse" style={{ animationDelay: '1s' }}></div>
+      </div>
+
       {/* Sidebar Overlay */}
       {sidebarOpen && (
         <div 
@@ -118,7 +125,8 @@ export const HomePage: React.FC = () => {
                 <span className="font-medium">Configurações da Conta</span>
               </button>
 
-              <div className="border-t border-gray-200 my-4"></div>
+              {/* Temporarily hidden until subscription feature is fully working */}
+              {/* <div className="border-t border-gray-200 my-4"></div>
 
               <button
                 onClick={() => {
@@ -131,7 +139,7 @@ export const HomePage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className="font-medium">Assinatura Mensal</span>
-              </button>
+              </button> */}
 
               <div className="border-t border-gray-200 my-4"></div>
 
@@ -214,7 +222,7 @@ export const HomePage: React.FC = () => {
       </aside>
 
       {/* Header */}
-      <header className="bg-gradient-to-r from-orange-600 to-orange-500 shadow-lg sticky top-0 z-30">
+      <header className="bg-gradient-to-r from-orange-600 to-orange-500 shadow-lg sticky top-0 z-30 relative">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <button
@@ -247,7 +255,7 @@ export const HomePage: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-lg mx-auto px-4 py-8">
+      <main className="max-w-lg mx-auto px-4 py-8 relative z-10">
         {/* Welcome Card */}
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6 mb-6">
           <div className="text-center mb-6">
