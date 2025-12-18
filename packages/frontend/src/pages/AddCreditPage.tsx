@@ -34,6 +34,12 @@ export const AddCreditPage: React.FC = () => {
       return;
     }
 
+    // Validate minimum amount for credit card
+    if (paymentMethod === 'card' && amount < 1) {
+      setMessage({ type: 'error', text: 'O valor mínimo para pagamento com cartão de crédito é R$ 1,00' });
+      return;
+    }
+
     try {
       setAddingCredit(true);
       setMessage(null);
@@ -163,7 +169,7 @@ export const AddCreditPage: React.FC = () => {
       setWaitingForPayment(false);
       setMessage({ 
         type: 'success', 
-        text: `Pagamento confirmado! ${formatCurrency(data.amount)} adicionado à sua conta.` 
+        text: 'Pagamento confirmado! Créditos adicionados à sua conta.' 
       });
       
       // Refresh user data to show new balance

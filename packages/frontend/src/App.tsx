@@ -18,6 +18,7 @@ import { AddCreditPage } from './pages/AddCreditPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SubscriptionPage } from './pages/SubscriptionPage';
+import { MachinesPage } from './pages/MachinesPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 import { SplashScreen } from './components/SplashScreen';
@@ -101,6 +102,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <SubscriptionPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/machines" 
+                  element={
+                    <ProtectedRoute>
+                      <MachinesPage />
                     </ProtectedRoute>
                   } 
                 />
