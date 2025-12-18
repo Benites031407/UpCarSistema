@@ -241,8 +241,8 @@ export const MachineActivationPage: React.FC = () => {
       // Handle payment based on method
       if (paymentMethod === 'balance') {
         // Activate immediately for balance payment
-        await api.post(`/sessions/${sessionData.id}/activate`);
-        setSession({ ...sessionData, status: 'active' });
+        const activateResponse = await api.post(`/sessions/${sessionData.id}/activate`);
+        setSession(activateResponse.data.session);
       } else if (paymentMethod === 'pix') {
         // PIX payment was already created by the backend during session creation
         const pixData = sessionResponse.data.paymentRequired?.pixPayment;
@@ -271,8 +271,8 @@ export const MachineActivationPage: React.FC = () => {
         });
 
         // Activate session after mixed payment
-        await api.post(`/sessions/${sessionData.id}/activate`);
-        setSession({ ...sessionData, status: 'active' });
+        const activateResponse = await api.post(`/sessions/${sessionData.id}/activate`);
+        setSession(activateResponse.data.session);
       }
 
     } catch (error: any) {
