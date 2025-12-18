@@ -75,7 +75,10 @@ export const MachineActivationPage: React.FC = () => {
 
   useEffect(() => {
     if (session && session.status === 'active') {
-      const startTime = new Date(session.startTime || session.createdAt).getTime();
+      // Use startTime if available, otherwise use current time (just activated)
+      const startTime = session.startTime 
+        ? new Date(session.startTime).getTime() 
+        : Date.now();
       const durationMs = duration * 60 * 1000;
       
       const interval = setInterval(() => {
