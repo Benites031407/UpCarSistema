@@ -267,39 +267,13 @@ export class PaymentService {
           token: request.token.substring(0, 20) + '...'
         });
 
-        // Step 1: Get payment method from token to get the correct payment_method_id
-        let paymentMethodId = 'credit_card'; // Default fallback
-        try {
-          this.logger.debug('Fetching payment method info from token...');
-          const tokenInfoResponse = await axios.get(
-            `${this.mercadoPagoBaseUrl}/v1/payment_methods/card_token/${request.token}`,
-            {
-              headers: {
-                'Authorization': `Bearer ${this.mercadoPagoAccessToken}`
-              },
-              timeout: 10000
-            }
-          );
-          
-          if (tokenInfoResponse.data?.payment_method_id) {
-            paymentMethodId = tokenInfoResponse.data.payment_method_id;
-            this.logger.debug('Payment method detected:', paymentMethodId);
-          }
-        } catch (tokenError: any) {
-          this.logger.warn('Could not fetch payment method from token, using default:', {
-            error: tokenError.message,
-            status: tokenError.response?.status
-          });
-          // Continue with default payment_method_id
-        }
-
-        // Step 2: Build payment data with all required fields
+        // Build payment data - MercadoPago will infer payment_method_id from token
+        // Not specifying payment_method_id to avoid diff_param_bins error
         const paymentData: any = {
           transaction_amount: request.amount,
           token: request.token,
           description: request.description.trim(),
           installments: request.installments || 1,
-          payment_method_id: paymentMethodId,
           payer: {
             email: request.payerEmail
           },
@@ -311,10 +285,9 @@ export class PaymentService {
           paymentData.external_reference = request.externalReference;
         }
 
-        this.logger.debug('Payment data prepared:', {
+        this.logger.debug('Payment data prepared (payment_method_id will be inferred from token):', {
           amount: paymentData.transaction_amount,
           installments: paymentData.installments,
-          payment_method_id: paymentData.payment_method_id,
           statement_descriptor: paymentData.statement_descriptor
         });
 
