@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useWebSocket } from '../contexts/WebSocketContext';
 import { PaymentMethodSelector } from '../components/PaymentMethodSelector';
 import { formatCurrency } from '../utils/currency';
 import { useRealtimeSession } from '../hooks/useRealtimeSession';
@@ -40,6 +41,7 @@ export const MachineActivationPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { user, logout, refreshUser } = useAuth();
+  const { socket, isConnected } = useWebSocket();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [machine, setMachine] = useState<Machine | null>(null);
@@ -117,6 +119,55 @@ export const MachineActivationPage: React.FC = () => {
       navigate(`/login?returnTo=/machine/${code}`, { replace: true });
     }
   }, [user, loading, code, navigate]);
+
+  // Listen for payment confirmation via WebSocket
+  useEffect(() => {
+    if (!socket || !isConnected || !pixPaymentData) return;
+
+    const handlePaymentConfirmed = async (data: any) => {
+      console.log('Payment confirmed via WebSocket:', data);
+      
+      if (data.paymentId === pixPaymentData.id) {
+        setMessage({ type: 'success', text: 'Pagamento confirmado! Ativando máquina...' });
+        setShowPixModal(false);
+        
+        // Refresh user balance
+        await refreshUser();
+        
+        // Confirm payment and activate session
+        try {
+          await api.post(`/sessions/${session.id}/confirm-payment`, {
+            paymentId: pixPaymentData.id,
+          });
+          
+          // Refresh session data
+          const sessionResponse = await api.get(`/sessions/${session.id}`);
+          setSession(sessionResponse.data);
+          setMessage({ type: 'success', text: 'Máquina ativada com sucesso!' });
+        } catch (error: any) {
+          console.error('Error activating session:', error);
+          setMessage({ type: 'error', text: error.response?.data?.error || 'Erro ao ativar máquina' });
+        }
+      }
+    };
+
+    const handlePaymentFailed = (data: any) => {
+      console.log('Payment failed via WebSocket:', data);
+      
+      if (data.paymentId === pixPaymentData.id) {
+        setMessage({ type: 'error', text: 'Pagamento não foi aprovado. Por favor, tente novamente.' });
+        setShowPixModal(false);
+      }
+    };
+
+    socket.on('payment-confirmed', handlePaymentConfirmed);
+    socket.on('payment-failed', handlePaymentFailed);
+
+    return () => {
+      socket.off('payment-confirmed', handlePaymentConfirmed);
+      socket.off('payment-failed', handlePaymentFailed);
+    };
+  }, [socket, isConnected, pixPaymentData, session, refreshUser]);
 
   const fetchMachineInfo = async () => {
     try {
