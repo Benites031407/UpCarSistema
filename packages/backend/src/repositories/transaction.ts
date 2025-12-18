@@ -107,6 +107,11 @@ export class PostgresTransactionRepository implements TransactionRepository {
       values.push(data.status);
     }
 
+    if (data.paymentId !== undefined) {
+      fields.push(`payment_id = $${paramCount++}`);
+      values.push(data.paymentId);
+    }
+
     if (fields.length === 0) {
       return this.findById(id);
     }

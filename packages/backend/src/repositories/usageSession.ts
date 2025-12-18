@@ -91,6 +91,15 @@ export class PostgresUsageSessionRepository implements UsageSessionRepository {
     return result.rows.length > 0 ? this.mapRowToUsageSession(result.rows[0]) : null;
   }
 
+  async findByPaymentId(paymentId: string): Promise<UsageSession | null> {
+    const result = await db.query(
+      'SELECT * FROM usage_sessions WHERE payment_id = $1',
+      [paymentId]
+    );
+    
+    return result.rows.length > 0 ? this.mapRowToUsageSession(result.rows[0]) : null;
+  }
+
   async findUserDailyUsage(userId: string, date: Date): Promise<UsageSession[]> {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
@@ -144,6 +153,10 @@ export class PostgresUsageSessionRepository implements UsageSessionRepository {
     if (data.endTime !== undefined) {
       fields.push(`end_time = $${paramCount++}`);
       values.push(data.endTime);
+    }
+    if (data.paymentId !== undefined) {
+      fields.push(`payment_id = $${paramCount++}`);
+      values.push(data.paymentId);
     }
 
     if (fields.length === 0) {

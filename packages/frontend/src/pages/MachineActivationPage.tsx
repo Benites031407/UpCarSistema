@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { useWebSocket } from '../contexts/WebSocketContext';
 import { PaymentMethodSelector } from '../components/PaymentMethodSelector';
 import { formatCurrency } from '../utils/currency';
 import { useRealtimeSession } from '../hooks/useRealtimeSession';
@@ -40,6 +41,7 @@ export const MachineActivationPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const { user, logout, refreshUser } = useAuth();
+  const { socket, isConnected } = useWebSocket();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [machine, setMachine] = useState<Machine | null>(null);
@@ -56,7 +58,7 @@ export const MachineActivationPage: React.FC = () => {
   const [pixPaymentData, setPixPaymentData] = useState<PIXPaymentData | null>(null);
   const [showPixModal, setShowPixModal] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [waitingForPayment, setWaitingForPayment] = useState(false);
   const [showInsufficientBalanceModal, setShowInsufficientBalanceModal] = useState(false);
 
   // Real-time session monitoring
@@ -117,6 +119,69 @@ export const MachineActivationPage: React.FC = () => {
       navigate(`/login?returnTo=/machine/${code}`, { replace: true });
     }
   }, [user, loading, code, navigate]);
+
+  // Listen for payment confirmation via WebSocket
+  useEffect(() => {
+    if (!socket || !isConnected || !showPixModal) return;
+
+    const handlePaymentConfirmed = async (data: any) => {
+      console.log('Payment confirmed via WebSocket:', data);
+      
+      setWaitingForPayment(false);
+      setMessage({ 
+        type: 'success', 
+        text: 'Pagamento confirmado! Ativando máquina...' 
+      });
+      
+      // Refresh user balance
+      await refreshUser();
+      
+      // Close modal
+      setShowPixModal(false);
+      
+      // Confirm payment and activate session
+      if (session && pixPaymentData) {
+        try {
+          await api.post(`/sessions/${session.id}/confirm-payment`, {
+            paymentId: pixPaymentData.id,
+          });
+          
+          // Refresh session data
+          const sessionResponse = await api.get(`/sessions/${session.id}`);
+          setSession(sessionResponse.data);
+          setMessage({ type: 'success', text: 'Máquina ativada com sucesso!' });
+        } catch (error: any) {
+          console.error('Error activating session:', error);
+          setMessage({ type: 'error', text: error.response?.data?.error || 'Erro ao ativar máquina' });
+        }
+      }
+    };
+
+    const handlePaymentFailed = (data: any) => {
+      console.log('Payment failed via WebSocket:', data);
+      
+      setWaitingForPayment(false);
+      setMessage({ 
+        type: 'error', 
+        text: 'Pagamento não foi aprovado. Por favor, tente novamente.' 
+      });
+    };
+
+    socket.on('payment-confirmed', handlePaymentConfirmed);
+    socket.on('payment-failed', handlePaymentFailed);
+
+    return () => {
+      socket.off('payment-confirmed', handlePaymentConfirmed);
+      socket.off('payment-failed', handlePaymentFailed);
+    };
+  }, [socket, isConnected, showPixModal, session, pixPaymentData, refreshUser]);
+
+  // Set waiting state when PIX modal opens
+  useEffect(() => {
+    if (showPixModal && pixPaymentData) {
+      setWaitingForPayment(true);
+    }
+  }, [showPixModal, pixPaymentData]);
 
   const fetchMachineInfo = async () => {
     try {
@@ -779,64 +844,19 @@ export const MachineActivationPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Check Payment Button */}
-            {pixPaymentData && (
-              <button
-                onClick={async () => {
-                  try {
-                    setProcessing(true);
-                    setError('');
-                    
-                    // Check payment status
-                    const statusResponse = await api.get(`/payments/status/${pixPaymentData.id}`);
-                    console.log('Payment status:', statusResponse.data);
-                    
-                    if (statusResponse.data.data.status === 'approved') {
-                      // Confirm payment and activate session
-                      await api.post(`/sessions/${session.id}/confirm-payment`, {
-                        paymentId: pixPaymentData.id,
-                      });
-                      
-                      // Refresh session data
-                      const sessionResponse = await api.get(`/sessions/${session.id}`);
-                      setSession(sessionResponse.data.session);
-                      
-                      setMessage({ type: 'success', text: 'Pagamento confirmado! Iniciando aspirador...' });
-                    } else {
-                      setMessage({ type: 'error', text: 'Pagamento ainda não confirmado. Aguarde alguns segundos e tente novamente.' });
-                    }
-                  } catch (error: any) {
-                    console.error('Failed to check payment:', error);
-                    setError(error.response?.data?.error || 'Falha ao verificar pagamento');
-                  } finally {
-                    setProcessing(false);
-                  }
-                }}
-                disabled={processing}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {processing ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Verificando...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Já Paguei - Verificar Pagamento
-                  </span>
-                )}
-              </button>
-            )}
-
-            <p className="text-xs text-gray-500 mt-3">
-              O pagamento pode levar alguns segundos para ser confirmado
-            </p>
+            {/* Waiting for payment confirmation */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 text-center">
+              <div className="flex items-center justify-center mb-2">
+                <svg className="animate-spin h-5 w-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="text-sm font-semibold text-blue-700">Aguardando confirmação do pagamento...</span>
+              </div>
+              <p className="text-xs text-blue-600">
+                Assim que o pagamento for confirmado, a máquina será ativada automaticamente
+              </p>
+            </div>
           </div>
         )}
 
@@ -1005,6 +1025,22 @@ export const MachineActivationPage: React.FC = () => {
                 <li>O aspirador iniciará automaticamente</li>
               </ol>
             </div>
+
+            {/* Waiting for payment */}
+            {waitingForPayment && (
+              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mb-4 text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <svg className="animate-spin h-5 w-5 text-yellow-600 mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span className="text-sm font-semibold text-yellow-700">Aguardando confirmação do pagamento...</span>
+                </div>
+                <p className="text-xs text-yellow-600">
+                  Assim que o pagamento for confirmado, a máquina será ativada automaticamente
+                </p>
+              </div>
+            )}
 
             {/* Close Button */}
             <button

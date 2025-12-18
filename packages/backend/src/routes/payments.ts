@@ -150,10 +150,21 @@ router.post('/pix',
         payerEmail: user.email
       });
 
+      console.log('PIX payment created:', pixPayment.id);
+      console.log('Updating transaction', transaction.id, 'with payment ID:', pixPayment.id);
+
       // Update transaction with payment ID
-      await transactionRepository.update(transaction.id, {
-        paymentId: pixPayment.id
-      });
+      try {
+        const updatedTransaction = await transactionRepository.update(transaction.id, {
+          paymentId: pixPayment.id
+        });
+        console.log('Transaction updated successfully:', updatedTransaction);
+      } catch (updateError) {
+        console.error('CRITICAL: Failed to update transaction with payment ID:', updateError);
+        console.error('Transaction ID:', transaction.id);
+        console.error('Payment ID:', pixPayment.id);
+        // Continue anyway - webhook can still process it via external_reference
+      }
       
       res.json({
         success: true,
@@ -194,7 +205,7 @@ router.post('/credit-card',
       const userId = (req as any).user.id;
       const { amount, description, token, installments = 1 } = req.body;
 
-      // Get user email
+      // Get user data
       const user = await userRepository.findById(userId);
       if (!user) {
         return res.status(404).json({
@@ -224,13 +235,22 @@ router.post('/credit-card',
         token,
         installments,
         payerEmail: user.email,
+        payerName: user.name,
         externalReference: transaction.id // Use transaction ID as external reference
       });
 
+      console.log('Credit card payment created:', cardPayment.id);
+
       // Update transaction with payment ID
-      await transactionRepository.update(transaction.id, {
-        paymentId: cardPayment.id
-      });
+      try {
+        await transactionRepository.update(transaction.id, {
+          paymentId: cardPayment.id
+        });
+        console.log('Transaction updated with payment ID:', cardPayment.id);
+      } catch (updateError) {
+        console.error('Failed to update transaction with payment ID:', updateError);
+        // Continue anyway - webhook can still process it via external_reference
+      }
 
       // If payment was approved immediately, add credit
       if (cardPayment.status === 'approved') {

@@ -42,6 +42,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       return;
     }
 
+    // Don't recreate socket if it already exists and is connected
+    if (socket && socket.connected) {
+      // Just rejoin the user room if user changed
+      socket.emit('join-user-room', user.id);
+      console.log('Re-joined user room:', user.id);
+      return;
+    }
+
     // Create socket connection
     // Remove /api from the URL for WebSocket connection
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -51,7 +59,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       auth: {
         token
       },
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
     });
 
     // Connection event handlers
@@ -89,7 +100,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       setSocket(null);
       setIsConnected(false);
     };
-  }, [user]);
+  }, [user?.id]); // Only depend on user.id, not the whole user object
 
   const joinAdminDashboard = useCallback(() => {
     if (socket && isConnected) {
