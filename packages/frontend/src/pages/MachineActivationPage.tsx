@@ -75,15 +75,17 @@ export const MachineActivationPage: React.FC = () => {
 
   useEffect(() => {
     if (session && session.status === 'active') {
-      // Use startTime if available, otherwise use current time (just activated)
-      const startTime = session.startTime 
-        ? new Date(session.startTime).getTime() 
-        : Date.now();
+      // Initialize with full duration when session becomes active
+      const durationSeconds = duration * 60;
+      setLocalTimeRemaining(durationSeconds);
+      setLocalProgress(0);
+      
+      const startTimeLocal = Date.now();
       const durationMs = duration * 60 * 1000;
       
       const interval = setInterval(() => {
         const now = Date.now();
-        const elapsed = now - startTime;
+        const elapsed = now - startTimeLocal;
         const remaining = Math.max(0, durationMs - elapsed);
         const progressPercent = Math.min(100, (elapsed / durationMs) * 100);
         
@@ -98,7 +100,7 @@ export const MachineActivationPage: React.FC = () => {
       
       return () => clearInterval(interval);
     }
-  }, [session, duration]);
+  }, [session?.status, duration]);
 
   // Use WebSocket data if available, otherwise use local countdown
   const formattedTimeRemaining = wsTimeRemaining || formatTime(localTimeRemaining);
