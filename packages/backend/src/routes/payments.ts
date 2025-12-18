@@ -150,10 +150,18 @@ router.post('/pix',
         payerEmail: user.email
       });
 
+      console.log('PIX payment created:', pixPayment.id);
+
       // Update transaction with payment ID
-      await transactionRepository.update(transaction.id, {
-        paymentId: pixPayment.id
-      });
+      try {
+        await transactionRepository.update(transaction.id, {
+          paymentId: pixPayment.id
+        });
+        console.log('Transaction updated with payment ID:', pixPayment.id);
+      } catch (updateError) {
+        console.error('Failed to update transaction with payment ID:', updateError);
+        // Continue anyway - webhook can still process it via external_reference
+      }
       
       res.json({
         success: true,
@@ -228,10 +236,18 @@ router.post('/credit-card',
         externalReference: transaction.id // Use transaction ID as external reference
       });
 
+      console.log('Credit card payment created:', cardPayment.id);
+
       // Update transaction with payment ID
-      await transactionRepository.update(transaction.id, {
-        paymentId: cardPayment.id
-      });
+      try {
+        await transactionRepository.update(transaction.id, {
+          paymentId: cardPayment.id
+        });
+        console.log('Transaction updated with payment ID:', cardPayment.id);
+      } catch (updateError) {
+        console.error('Failed to update transaction with payment ID:', updateError);
+        // Continue anyway - webhook can still process it via external_reference
+      }
 
       // If payment was approved immediately, add credit
       if (cardPayment.status === 'approved') {
