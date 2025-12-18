@@ -151,15 +151,18 @@ router.post('/pix',
       });
 
       console.log('PIX payment created:', pixPayment.id);
+      console.log('Updating transaction', transaction.id, 'with payment ID:', pixPayment.id);
 
       // Update transaction with payment ID
       try {
-        await transactionRepository.update(transaction.id, {
+        const updatedTransaction = await transactionRepository.update(transaction.id, {
           paymentId: pixPayment.id
         });
-        console.log('Transaction updated with payment ID:', pixPayment.id);
+        console.log('Transaction updated successfully:', updatedTransaction);
       } catch (updateError) {
-        console.error('Failed to update transaction with payment ID:', updateError);
+        console.error('CRITICAL: Failed to update transaction with payment ID:', updateError);
+        console.error('Transaction ID:', transaction.id);
+        console.error('Payment ID:', pixPayment.id);
         // Continue anyway - webhook can still process it via external_reference
       }
       
