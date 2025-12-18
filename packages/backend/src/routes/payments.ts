@@ -194,7 +194,7 @@ router.post('/credit-card',
       const userId = (req as any).user.id;
       const { amount, description, token, installments = 1 } = req.body;
 
-      // Get user email
+      // Get user data
       const user = await userRepository.findById(userId);
       if (!user) {
         return res.status(404).json({
@@ -224,6 +224,7 @@ router.post('/credit-card',
         token,
         installments,
         payerEmail: user.email,
+        payerName: user.name,
         externalReference: transaction.id // Use transaction ID as external reference
       });
 

@@ -32,6 +32,7 @@ export interface CreditCardPaymentRequest {
   token: string; // Card token from Mercado Pago SDK
   installments: number;
   payerEmail: string;
+  payerName?: string;
   externalReference?: string;
 }
 
@@ -285,7 +286,11 @@ export class PaymentService {
           description: request.description.trim(),
           installments: request.installments || 1,
           payer: {
-            email: request.payerEmail
+            email: request.payerEmail,
+            ...(request.payerName && {
+              first_name: request.payerName.split(' ')[0],
+              last_name: request.payerName.split(' ').slice(1).join(' ') || request.payerName.split(' ')[0]
+            })
           },
           statement_descriptor: 'UPCAR ASPIRADORES',
           // Add items array for better fraud prevention and approval rates
@@ -299,7 +304,13 @@ export class PaymentService {
                 quantity: 1,
                 unit_price: request.amount
               }
-            ]
+            ],
+            payer: {
+              ...(request.payerName && {
+                first_name: request.payerName.split(' ')[0],
+                last_name: request.payerName.split(' ').slice(1).join(' ') || request.payerName.split(' ')[0]
+              })
+            }
           }
         };
 
