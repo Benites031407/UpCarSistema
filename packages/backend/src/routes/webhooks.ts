@@ -55,56 +55,72 @@ router.post('/mercadopago', async (req: express.Request, res: express.Response) 
       console.log(`Processing payment notification: ${paymentId}`);
       logger.info(`Processando notificação de pagamento: ${paymentId}`);
 
-      // Aguardar um pouco para garantir que o pagamento foi processado pelo MP
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Process asynchronously without blocking
+      (async () => {
+        try {
+          // Aguardar um pouco para garantir que o pagamento foi processado pelo MP
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          console.log(`Checking payment status for: ${paymentId}`);
 
-      // Buscar status atualizado do pagamento
-      const paymentStatus = await paymentService.checkPIXPaymentStatus(paymentId.toString());
+          // Buscar status atualizado do pagamento
+          const paymentStatus = await paymentService.checkPIXPaymentStatus(paymentId.toString());
+          console.log(`Payment status for ${paymentId}:`, paymentStatus.status);
 
-      logger.info(`Status do pagamento ${paymentId}:`, paymentStatus);
+          logger.info(`Status do pagamento ${paymentId}:`, paymentStatus);
 
-      if (paymentStatus.status === 'approved') {
-        // Confirmar pagamento no sistema
-        const transaction = await paymentService.confirmPIXPayment(paymentId.toString());
+          if (paymentStatus.status === 'approved') {
+            console.log(`Payment ${paymentId} approved, confirming...`);
+            // Confirmar pagamento no sistema
+            const transaction = await paymentService.confirmPIXPayment(paymentId.toString());
 
-        if (transaction) {
-          logger.info(`Pagamento ${paymentId} confirmado com sucesso para usuário ${transaction.userId}`);
+            if (transaction) {
+              console.log(`Payment ${paymentId} confirmed for user ${transaction.userId}`);
+              logger.info(`Pagamento ${paymentId} confirmado com sucesso para usuário ${transaction.userId}`);
 
-          // Buscar usuário atualizado
-          const user = await userRepository.findById(transaction.userId);
+              // Buscar usuário atualizado
+              const user = await userRepository.findById(transaction.userId);
 
-          if (user) {
-            // Notificar usuário via WebSocket
-            webSocketService.sendToUser(transaction.userId, 'payment-confirmed', {
-              transactionId: transaction.id,
-              paymentId: paymentId.toString(),
-              amount: transaction.amount,
-              newBalance: user.accountBalance,
-              type: transaction.type,
-              timestamp: new Date().toISOString()
-            });
+              if (user) {
+                console.log(`Sending WebSocket notification to user ${transaction.userId}`);
+                // Notificar usuário via WebSocket
+                webSocketService.sendToUser(transaction.userId, 'payment-confirmed', {
+                  transactionId: transaction.id,
+                  paymentId: paymentId.toString(),
+                  amount: transaction.amount,
+                  newBalance: user.accountBalance,
+                  type: transaction.type,
+                  timestamp: new Date().toISOString()
+                });
 
-            logger.info(`Notificação WebSocket enviada para usuário ${transaction.userId}`);
+                console.log(`WebSocket notification sent to user ${transaction.userId}`);
+                logger.info(`Notificação WebSocket enviada para usuário ${transaction.userId}`);
+              }
+            }
+          } else if (paymentStatus.status === 'rejected' || paymentStatus.status === 'cancelled') {
+            console.log(`Payment ${paymentId} was ${paymentStatus.status}`);
+            logger.warn(`Pagamento ${paymentId} foi ${paymentStatus.status}`);
+            
+            // Buscar transação para notificar usuário
+            const transaction = await transactionRepository.findByPaymentId(paymentId.toString());
+            if (transaction) {
+              // Notificar usuário sobre falha
+              webSocketService.sendToUser(transaction.userId, 'payment-failed', {
+                paymentId: paymentId.toString(),
+                status: paymentStatus.status,
+                timestamp: new Date().toISOString()
+              });
+            }
           }
+        } catch (webhookError) {
+          console.error(`Error processing webhook for payment ${paymentId}:`, webhookError);
+          logger.error('Erro ao processar webhook:', webhookError);
         }
-      } else if (paymentStatus.status === 'rejected' || paymentStatus.status === 'cancelled') {
-        logger.warn(`Pagamento ${paymentId} foi ${paymentStatus.status}`);
-        
-        // Buscar transação para notificar usuário
-        const transaction = await transactionRepository.findByPaymentId(paymentId.toString());
-        if (transaction) {
-          // Notificar usuário sobre falha
-          webSocketService.sendToUser(transaction.userId, 'payment-failed', {
-            paymentId: paymentId.toString(),
-            status: paymentStatus.status,
-            timestamp: new Date().toISOString()
-          });
-        }
-      }
+      })();
     } else {
       logger.debug(`Tipo de notificação ignorado: ${notificationType}`);
     }
   } catch (error) {
+    console.error('Error in webhook handler:', error);
     logger.error('Erro ao processar webhook do Mercado Pago:', error);
     // Não retornar erro para o MP, já respondemos 200
   }
