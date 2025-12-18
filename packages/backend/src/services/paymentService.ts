@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { v4 as uuidv4 } from 'uuid';
 import { Transaction, User, CreateTransactionInput } from '../models/types.js';
 import { TransactionRepository } from '../repositories/interfaces.js';
@@ -54,7 +54,8 @@ export interface PaymentMethodSelection {
 
 export class PaymentService {
   private mercadoPagoAccessToken: string;
-  private mercadoPagoBaseUrl: string;
+  private mercadoPagoClient: MercadoPagoConfig | null = null;
+  private paymentClient: Payment | null = null;
   private logger = createLogger('payment-service');
   private pixCircuitBreaker: ServiceCircuitBreaker;
 
@@ -63,11 +64,20 @@ export class PaymentService {
     private userRepository: UserRepository
   ) {
     this.mercadoPagoAccessToken = process.env.PIX_ACCESS_TOKEN || process.env.MERCADO_PAGO_ACCESS_TOKEN || '';
-    this.mercadoPagoBaseUrl = process.env.PIX_GATEWAY_URL || process.env.MERCADO_PAGO_BASE_URL || 'https://api.mercadopago.com';
     this.pixCircuitBreaker = new ServiceCircuitBreaker('payment_pix', 3, 120000, 10000);
     
     if (!this.mercadoPagoAccessToken) {
       this.logger.warn('PIX_ACCESS_TOKEN not configured. PIX payments will not work.');
+    } else {
+      // Initialize MercadoPago SDK
+      this.mercadoPagoClient = new MercadoPagoConfig({ 
+        accessToken: this.mercadoPagoAccessToken,
+        options: {
+          timeout: 30000
+        }
+      });
+      this.paymentClient = new Payment(this.mercadoPagoClient);
+      this.logger.info('MercadoPago SDK initialized successfully');
     }
   }
 
@@ -119,7 +129,7 @@ export class PaymentService {
    * Creates a PIX payment through Mercado Pago
    */
   async createPIXPayment(request: PIXPaymentRequest): Promise<PIXPaymentResponse> {
-    if (!this.mercadoPagoAccessToken) {
+    if (!this.paymentClient) {
       throw new ExternalServiceError('PIX Gateway', 'PIX payment gateway not configured');
     }
 
@@ -140,7 +150,20 @@ export class PaymentService {
             const paymentData: any = {
               transaction_amount: request.amount,
               description: request.description.trim(),
-              payment_method_id: 'pix'
+              payment_method_id: 'pix',
+              // Add items array for better fraud prevention and approval rates
+              additional_info: {
+                items: [
+                  {
+                    id: 'account_credit',
+                    title: 'Crédito de Conta - Sistema de Aspiradores',
+                    description: request.description.trim(),
+                    category_id: 'services',
+                    quantity: 1,
+                    unit_price: request.amount
+                  }
+                ]
+              }
             };
 
             // Add optional fields only if they exist
@@ -157,60 +180,48 @@ export class PaymentService {
             // Generate idempotency key to prevent duplicate payments
             const idempotencyKey = uuidv4();
 
-            this.logger.debug('Creating PIX payment:', { 
+            this.logger.debug('Creating PIX payment with SDK:', { 
               amount: request.amount, 
               description: request.description,
               externalReference: request.externalReference,
               idempotencyKey
             });
 
-            let response;
+            let payment;
             try {
-              response = await axios.post(
-                `${this.mercadoPagoBaseUrl}/v1/payments`,
-                paymentData,
-                {
-                  headers: {
-                    'Authorization': `Bearer ${this.mercadoPagoAccessToken}`,
-                    'Content-Type': 'application/json',
-                    'X-Idempotency-Key': idempotencyKey
-                  },
-                  timeout: 30000 // 30 second timeout
+              payment = await this.paymentClient!.create({
+                body: paymentData,
+                requestOptions: {
+                  idempotencyKey
                 }
-              );
-            } catch (axiosError: any) {
-              const mpError = axiosError.response?.data;
-              this.logger.error('Mercado Pago PIX API error:', {
-                status: axiosError.response?.status,
-                statusText: axiosError.response?.statusText,
-                data: axiosError.response?.data,
-                message: axiosError.message,
-                cause: mpError?.cause,
-                mpMessage: mpError?.message,
-                mpStatus: mpError?.status,
+              });
+            } catch (sdkError: any) {
+              const mpError = sdkError.cause || sdkError;
+              this.logger.error('MercadoPago SDK PIX error:', {
+                message: sdkError.message,
+                cause: mpError,
+                status: sdkError.status,
                 paymentData,
-                fullError: JSON.stringify(axiosError.response?.data, null, 2)
+                fullError: JSON.stringify(sdkError, null, 2)
               });
               
               // Throw a more descriptive error with MercadoPago's message
               if (mpError?.message) {
                 throw new ExternalServiceError('MercadoPago PIX', `${mpError.message}${mpError.cause ? ` - ${JSON.stringify(mpError.cause)}` : ''}`);
               }
-              throw axiosError;
+              throw new ExternalServiceError('MercadoPago PIX', sdkError.message || 'Payment creation failed');
             }
-
-            const payment = response.data;
             
             const result = {
-              id: payment.id.toString(),
-              status: this.mapMercadoPagoStatus(payment.status),
+              id: payment.id!.toString(),
+              status: this.mapMercadoPagoStatus(payment.status!),
               qrCode: payment.point_of_interaction?.transaction_data?.qr_code,
               qrCodeBase64: payment.point_of_interaction?.transaction_data?.qr_code_base64,
               pixCopyPaste: payment.point_of_interaction?.transaction_data?.qr_code,
               expirationDate: payment.date_of_expiration ? new Date(payment.date_of_expiration) : undefined
             };
 
-            this.logger.info('PIX payment created successfully:', { 
+            this.logger.info('PIX payment created successfully with SDK:', { 
               paymentId: result.id, 
               status: result.status 
             });
@@ -232,7 +243,7 @@ export class PaymentService {
    * Creates a credit card payment through Mercado Pago
    */
   async createCreditCardPayment(request: CreditCardPaymentRequest): Promise<CreditCardPaymentResponse> {
-    if (!this.mercadoPagoAccessToken) {
+    if (!this.paymentClient) {
       throw new ExternalServiceError('Payment Gateway', 'Payment gateway not configured');
     }
 
@@ -259,7 +270,7 @@ export class PaymentService {
         // Generate idempotency key
         const idempotencyKey = uuidv4();
 
-        this.logger.debug('Creating credit card payment:', {
+        this.logger.debug('Creating credit card payment with SDK:', {
           amount: request.amount,
           description: request.description,
           installments: request.installments,
@@ -268,7 +279,6 @@ export class PaymentService {
         });
 
         // Build payment data - MercadoPago will infer payment_method_id from token
-        // Not specifying payment_method_id to avoid diff_param_bins error
         const paymentData: any = {
           transaction_amount: request.amount,
           token: request.token,
@@ -277,7 +287,20 @@ export class PaymentService {
           payer: {
             email: request.payerEmail
           },
-          statement_descriptor: 'UPCAR ASPIRADORES'
+          statement_descriptor: 'UPCAR ASPIRADORES',
+          // Add items array for better fraud prevention and approval rates
+          additional_info: {
+            items: [
+              {
+                id: 'account_credit',
+                title: 'Crédito de Conta - Sistema de Aspiradores',
+                description: request.description.trim(),
+                category_id: 'services',
+                quantity: 1,
+                unit_price: request.amount
+              }
+            ]
+          }
         };
 
         // Add optional fields
@@ -291,52 +314,40 @@ export class PaymentService {
           statement_descriptor: paymentData.statement_descriptor
         });
 
-        // Step 3: Create payment
-        let response;
+        // Create payment using SDK
+        let payment;
         try {
-          response = await axios.post(
-            `${this.mercadoPagoBaseUrl}/v1/payments`,
-            paymentData,
-            {
-              headers: {
-                'Authorization': `Bearer ${this.mercadoPagoAccessToken}`,
-                'Content-Type': 'application/json',
-                'X-Idempotency-Key': idempotencyKey
-              },
-              timeout: 30000
+          payment = await this.paymentClient!.create({
+            body: paymentData,
+            requestOptions: {
+              idempotencyKey
             }
-          );
-        } catch (axiosError: any) {
-          const mpError = axiosError.response?.data;
-          this.logger.error('Mercado Pago credit card API error:', {
-            status: axiosError.response?.status,
-            statusText: axiosError.response?.statusText,
-            data: axiosError.response?.data,
-            message: axiosError.message,
-            cause: mpError?.cause,
-            mpMessage: mpError?.message,
-            mpStatus: mpError?.status,
-            fullError: JSON.stringify(axiosError.response?.data, null, 2)
+          });
+        } catch (sdkError: any) {
+          const mpError = sdkError.cause || sdkError;
+          this.logger.error('MercadoPago SDK credit card error:', {
+            message: sdkError.message,
+            cause: mpError,
+            status: sdkError.status,
+            fullError: JSON.stringify(sdkError, null, 2)
           });
           
           // Throw a more descriptive error with MercadoPago's message
           if (mpError?.message) {
             throw new ExternalServiceError('MercadoPago', `${mpError.message}${mpError.cause ? ` - ${JSON.stringify(mpError.cause)}` : ''}`);
           }
-          throw axiosError;
+          throw new ExternalServiceError('MercadoPago', sdkError.message || 'Payment creation failed');
         }
 
-        const payment = response.data;
-
         const result = {
-          id: payment.id.toString(),
-          status: this.mapMercadoPagoStatus(payment.status),
+          id: payment.id!.toString(),
+          status: this.mapMercadoPagoStatus(payment.status!),
           statusDetail: payment.status_detail,
           installments: payment.installments,
           transactionAmount: payment.transaction_amount
         };
 
-        this.logger.info('Credit card payment created:', {
+        this.logger.info('Credit card payment created with SDK:', {
           paymentId: result.id,
           status: result.status,
           statusDetail: result.statusDetail
@@ -352,7 +363,7 @@ export class PaymentService {
    * Checks the status of a PIX payment
    */
   async checkPIXPaymentStatus(paymentId: string): Promise<PIXPaymentResponse> {
-    if (!this.mercadoPagoAccessToken) {
+    if (!this.paymentClient) {
       throw new ExternalServiceError('PIX Gateway', 'PIX payment gateway not configured');
     }
 
@@ -364,29 +375,19 @@ export class PaymentService {
       async () => {
         return await retryExternalService(
           async () => {
-            this.logger.debug('Checking PIX payment status:', { paymentId });
+            this.logger.debug('Checking PIX payment status with SDK:', { paymentId });
 
-            const response = await axios.get(
-              `${this.mercadoPagoBaseUrl}/v1/payments/${paymentId.trim()}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${this.mercadoPagoAccessToken}`
-                },
-                timeout: 15000 // 15 second timeout for status checks
-              }
-            );
-
-            const payment = response.data;
+            const payment = await this.paymentClient!.get({ id: paymentId.trim() });
             
             const result = {
-              id: payment.id.toString(),
-              status: this.mapMercadoPagoStatus(payment.status),
+              id: payment.id!.toString(),
+              status: this.mapMercadoPagoStatus(payment.status!),
               qrCode: payment.point_of_interaction?.transaction_data?.qr_code,
               qrCodeBase64: payment.point_of_interaction?.transaction_data?.qr_code_base64,
               pixCopyPaste: payment.point_of_interaction?.transaction_data?.qr_code
             };
 
-            this.logger.debug('PIX payment status retrieved:', { 
+            this.logger.debug('PIX payment status retrieved with SDK:', { 
               paymentId, 
               status: result.status 
             });
@@ -405,9 +406,9 @@ export class PaymentService {
           return {
             id: paymentId,
             status: 'pending' as const,
-            qrCode: null,
-            qrCodeBase64: null,
-            pixCopyPaste: null
+            qrCode: undefined,
+            qrCodeBase64: undefined,
+            pixCopyPaste: undefined
           };
         }
       }
