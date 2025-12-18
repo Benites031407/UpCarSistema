@@ -19,6 +19,10 @@ const paymentService = new PaymentService(transactionRepository, userRepository)
  */
 router.post('/mercadopago', async (req: express.Request, res: express.Response) => {
   try {
+    console.log('=== WEBHOOK RECEIVED ===');
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    console.log('Query:', req.query);
+    
     logger.info('Webhook do Mercado Pago recebido:', {
       body: req.body,
       query: req.query,
@@ -34,16 +38,21 @@ router.post('/mercadopago', async (req: express.Request, res: express.Response) 
     const notificationType = req.body.type || req.body.action;
     const paymentId = req.body.data?.id || req.query.id;
 
+    console.log('Notification type:', notificationType);
+    console.log('Payment ID:', paymentId);
+
     // Responder imediatamente para o Mercado Pago
     res.status(200).json({ success: true });
 
     // Processar notificação de forma assíncrona
     if (notificationType === 'payment' || notificationType === 'payment.updated') {
       if (!paymentId) {
+        console.log('WARNING: Webhook sem payment ID');
         logger.warn('Webhook sem payment ID:', req.body);
         return;
       }
 
+      console.log(`Processing payment notification: ${paymentId}`);
       logger.info(`Processando notificação de pagamento: ${paymentId}`);
 
       // Aguardar um pouco para garantir que o pagamento foi processado pelo MP
