@@ -206,6 +206,7 @@ export interface UpdateUsageSessionInput {
 
 export interface UpdateTransactionInput {
   status?: 'pending' | 'completed' | 'failed';
+  paymentId?: string;
 }
 
 export interface UpdateNotificationInput {

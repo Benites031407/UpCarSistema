@@ -131,23 +131,29 @@ router.post('/pix',
       // Audit log PIX payment initiation
       auditOperations.paymentInitiated(req, amount, 'pix');
 
-      const pixPayment = await paymentService.createPIXPayment({
-        amount,
-        description,
-        externalReference,
-        payerEmail: user.email
-      });
-
-      // Create pending transaction
-      const transactionData = {
+      // Create transaction first to get ID for external_reference
+      const pendingTransactionData = {
         userId,
         type: 'credit_added' as const,
         amount,
         paymentMethod: 'pix' as const,
-        paymentId: pixPayment.id
+        paymentId: null // Will be updated after payment creation
       };
 
-      const transaction = await transactionRepository.create(transactionData);
+      const transaction = await transactionRepository.create(pendingTransactionData);
+
+      // Create PIX payment with transaction ID as external_reference
+      const pixPayment = await paymentService.createPIXPayment({
+        amount,
+        description,
+        externalReference: transaction.id, // Use transaction ID as external reference
+        payerEmail: user.email
+      });
+
+      // Update transaction with payment ID
+      await transactionRepository.update(transaction.id, {
+        paymentId: pixPayment.id
+      });
       
       res.json({
         success: true,
@@ -198,15 +204,32 @@ router.post('/credit-card',
       }
 
       // Audit log credit card payment initiation
-    console.log("Credit card payment request:", JSON.stringify(req.body, null, 2));
       auditOperations.paymentInitiated(req, amount, 'credit_card');
 
+      // Create transaction first to get ID for external_reference
+      const pendingTransactionData = {
+        userId,
+        type: 'credit_added' as const,
+        amount,
+        paymentMethod: 'credit_card' as const,
+        paymentId: null // Will be updated after payment creation
+      };
+
+      const transaction = await transactionRepository.create(pendingTransactionData);
+
+      // Create payment with transaction ID as external_reference
       const cardPayment = await paymentService.createCreditCardPayment({
         amount,
         description,
         token,
         installments,
-        payerEmail: user.email
+        payerEmail: user.email,
+        externalReference: transaction.id // Use transaction ID as external reference
+      });
+
+      // Update transaction with payment ID
+      await transactionRepository.update(transaction.id, {
+        paymentId: cardPayment.id
       });
 
       // If payment was approved immediately, add credit
@@ -222,17 +245,6 @@ router.post('/credit-card',
           }
         });
       }
-
-      // If payment is pending or rejected, create transaction record
-      const transactionData = {
-        userId,
-        type: 'credit_added' as const,
-        amount,
-        paymentMethod: 'credit_card' as const,
-        paymentId: cardPayment.id
-      };
-
-      const transaction = await transactionRepository.create(transactionData);
 
       res.json({
         success: true,
