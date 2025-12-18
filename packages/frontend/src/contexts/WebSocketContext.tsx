@@ -43,7 +43,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     }
 
     // Create socket connection
-    const newSocket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001', {
+    // Remove /api from the URL for WebSocket connection
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+    const wsUrl = apiUrl.replace('/api', '');
+    
+    const newSocket = io(wsUrl, {
       auth: {
         token
       },

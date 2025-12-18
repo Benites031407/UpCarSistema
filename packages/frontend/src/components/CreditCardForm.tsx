@@ -97,10 +97,24 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
         return;
       }
 
-      // Initialize Mercado Pago (v2 SDK)
-      const mp = new window.MercadoPago(import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY);
+      // Get and validate public key
+      const publicKey = import.meta.env.VITE_MERCADO_PAGO_PUBLIC_KEY;
+      
+      if (!publicKey || publicKey === 'YOUR_MERCADO_PAGO_PUBLIC_KEY') {
+        console.error('MercadoPago public key not configured:', publicKey);
+        onError('Chave pública do MercadoPago não configurada. Entre em contato com o suporte.');
+        setProcessing(false);
+        return;
+      }
 
-      // Create card token using the correct v2 API
+      console.log('Initializing MercadoPago with key:', publicKey.substring(0, 15) + '...');
+
+      // Initialize Mercado Pago (v2 SDK)
+      const mp = new window.MercadoPago(publicKey);
+
+      console.log('Creating card token with MercadoPago SDK...');
+
+      // Create card token using the v2 API with direct data
       const cardToken = await mp.createCardToken({
         cardNumber: cleanCardNumber,
         cardholderName: cardholderName.toUpperCase(),
@@ -110,6 +124,8 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
         identificationType: 'CPF',
         identificationNumber: '00000000000' // You should collect this from user
       });
+
+      console.log('Card token created successfully:', cardToken.id);
       
       if (cardToken && cardToken.id) {
         onSuccess(cardToken.id, installments);

@@ -179,13 +179,23 @@ export class PaymentService {
                 }
               );
             } catch (axiosError: any) {
-              this.logger.error('Mercado Pago API error:', {
+              const mpError = axiosError.response?.data;
+              this.logger.error('Mercado Pago PIX API error:', {
                 status: axiosError.response?.status,
                 statusText: axiosError.response?.statusText,
                 data: axiosError.response?.data,
                 message: axiosError.message,
-                paymentData
+                cause: mpError?.cause,
+                mpMessage: mpError?.message,
+                mpStatus: mpError?.status,
+                paymentData,
+                fullError: JSON.stringify(axiosError.response?.data, null, 2)
               });
+              
+              // Throw a more descriptive error with MercadoPago's message
+              if (mpError?.message) {
+                throw new ExternalServiceError('MercadoPago PIX', `${mpError.message}${mpError.cause ? ` - ${JSON.stringify(mpError.cause)}` : ''}`);
+              }
               throw axiosError;
             }
 
@@ -246,22 +256,6 @@ export class PaymentService {
 
     return await retryPaymentOperation(
       async () => {
-        const paymentData: any = {
-          transaction_amount: request.amount,
-          token: request.token,
-          description: request.description.trim(),
-          installments: request.installments || 1,
-          payment_method_id: 'credit_card',
-          payer: {
-            email: request.payerEmail
-          }
-        };
-
-        // Add optional fields
-        if (request.externalReference) {
-          paymentData.external_reference = request.externalReference;
-        }
-
         // Generate idempotency key
         const idempotencyKey = uuidv4();
 
@@ -269,9 +263,62 @@ export class PaymentService {
           amount: request.amount,
           description: request.description,
           installments: request.installments,
-          idempotencyKey
+          idempotencyKey,
+          token: request.token.substring(0, 20) + '...'
         });
 
+        // Step 1: Get payment method from token to get the correct payment_method_id
+        let paymentMethodId = 'credit_card'; // Default fallback
+        try {
+          this.logger.debug('Fetching payment method info from token...');
+          const tokenInfoResponse = await axios.get(
+            `${this.mercadoPagoBaseUrl}/v1/payment_methods/card_token/${request.token}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${this.mercadoPagoAccessToken}`
+              },
+              timeout: 10000
+            }
+          );
+          
+          if (tokenInfoResponse.data?.payment_method_id) {
+            paymentMethodId = tokenInfoResponse.data.payment_method_id;
+            this.logger.debug('Payment method detected:', paymentMethodId);
+          }
+        } catch (tokenError: any) {
+          this.logger.warn('Could not fetch payment method from token, using default:', {
+            error: tokenError.message,
+            status: tokenError.response?.status
+          });
+          // Continue with default payment_method_id
+        }
+
+        // Step 2: Build payment data with all required fields
+        const paymentData: any = {
+          transaction_amount: request.amount,
+          token: request.token,
+          description: request.description.trim(),
+          installments: request.installments || 1,
+          payment_method_id: paymentMethodId,
+          payer: {
+            email: request.payerEmail
+          },
+          statement_descriptor: 'UPCAR ASPIRADORES'
+        };
+
+        // Add optional fields
+        if (request.externalReference) {
+          paymentData.external_reference = request.externalReference;
+        }
+
+        this.logger.debug('Payment data prepared:', {
+          amount: paymentData.transaction_amount,
+          installments: paymentData.installments,
+          payment_method_id: paymentData.payment_method_id,
+          statement_descriptor: paymentData.statement_descriptor
+        });
+
+        // Step 3: Create payment
         let response;
         try {
           response = await axios.post(
@@ -287,25 +334,24 @@ export class PaymentService {
             }
           );
         } catch (axiosError: any) {
-          console.error('=== MERCADOPAGO ERROR DETAILS ===');
-          console.error('Status:', axiosError.response?.status);
-          console.error('Data:', JSON.stringify(axiosError.response?.data, null, 2));
-          console.error('Message:', axiosError.message);
-          console.error('================================');
-          
-          console.error("=== MERCADOPAGO ERROR DETAILS ===");
-          console.error("Status:", axiosError.response?.status);
-          console.error("Data:", JSON.stringify(axiosError.response?.data, null, 2));
-          console.error("Message:", axiosError.message);
-          console.error("================================");
+          const mpError = axiosError.response?.data;
           this.logger.error('Mercado Pago credit card API error:', {
             status: axiosError.response?.status,
             statusText: axiosError.response?.statusText,
             data: axiosError.response?.data,
-            message: axiosError.message
+            message: axiosError.message,
+            cause: mpError?.cause,
+            mpMessage: mpError?.message,
+            mpStatus: mpError?.status,
+            fullError: JSON.stringify(axiosError.response?.data, null, 2)
           });
+          
+          // Throw a more descriptive error with MercadoPago's message
+          if (mpError?.message) {
+            throw new ExternalServiceError('MercadoPago', `${mpError.message}${mpError.cause ? ` - ${JSON.stringify(mpError.cause)}` : ''}`);
+          }
           throw axiosError;
-        }     
+        }
 
         const payment = response.data;
 
