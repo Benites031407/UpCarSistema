@@ -115,14 +115,13 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
       console.log('Creating card token with MercadoPago SDK...');
 
       // Create card token using the v2 API with direct data
+      // Note: Not including identification to avoid diff_param_bins error
       const cardToken = await mp.createCardToken({
         cardNumber: cleanCardNumber,
         cardholderName: cardholderName.toUpperCase(),
         cardExpirationMonth: month,
         cardExpirationYear: `20${year}`,
-        securityCode: securityCode,
-        identificationType: 'CPF',
-        identificationNumber: '00000000000' // You should collect this from user
+        securityCode: securityCode
       });
 
       console.log('Card token created successfully:', cardToken.id);
