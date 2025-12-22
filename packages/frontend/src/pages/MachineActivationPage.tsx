@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useWebSocket } from '../contexts/WebSocketContext';
-import { PaymentMethodSelector } from '../components/PaymentMethodSelector';
 import { formatCurrency } from '../utils/currency';
 import { useRealtimeSession } from '../hooks/useRealtimeSession';
 
@@ -29,14 +28,6 @@ interface Availability {
   maintenanceRequired: boolean;
 }
 
-interface PIXPaymentData {
-  id: string;
-  qrCode?: string;
-  qrCodeBase64?: string;
-  pixCopyPaste?: string;
-  amount: number;
-}
-
 export const MachineActivationPage: React.FC = () => {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
@@ -50,15 +41,10 @@ export const MachineActivationPage: React.FC = () => {
   const [error, setError] = useState('');
   
   const [duration, setDuration] = useState(5);
-  const [paymentMethod, setPaymentMethod] = useState<'balance' | 'pix' | 'mixed'>('pix');
-  const [paymentData, setPaymentData] = useState<any>(null);
   const [processing, setProcessing] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [showStopModal, setShowStopModal] = useState(false);
-  const [pixPaymentData, setPixPaymentData] = useState<PIXPaymentData | null>(null);
-  const [showPixModal, setShowPixModal] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [waitingForPayment, setWaitingForPayment] = useState(false);
   const [showInsufficientBalanceModal, setShowInsufficientBalanceModal] = useState(false);
 
   // Real-time session monitoring
@@ -125,69 +111,6 @@ export const MachineActivationPage: React.FC = () => {
     }
   }, [user, loading, code, navigate]);
 
-  // Listen for payment confirmation via WebSocket
-  useEffect(() => {
-    if (!socket || !isConnected || !showPixModal) return;
-
-    const handlePaymentConfirmed = async (data: any) => {
-      console.log('Payment confirmed via WebSocket:', data);
-      
-      setWaitingForPayment(false);
-      setMessage({ 
-        type: 'success', 
-        text: 'Pagamento confirmado! Ativando máquina...' 
-      });
-      
-      // Refresh user balance
-      await refreshUser();
-      
-      // Close modal
-      setShowPixModal(false);
-      
-      // Confirm payment and activate session
-      if (session && pixPaymentData) {
-        try {
-          await api.post(`/sessions/${session.id}/confirm-payment`, {
-            paymentId: pixPaymentData.id,
-          });
-          
-          // Refresh session data
-          const sessionResponse = await api.get(`/sessions/${session.id}`);
-          setSession(sessionResponse.data);
-          setMessage({ type: 'success', text: 'Máquina ativada com sucesso!' });
-        } catch (error: any) {
-          console.error('Error activating session:', error);
-          setMessage({ type: 'error', text: error.response?.data?.error || 'Erro ao ativar máquina' });
-        }
-      }
-    };
-
-    const handlePaymentFailed = (data: any) => {
-      console.log('Payment failed via WebSocket:', data);
-      
-      setWaitingForPayment(false);
-      setMessage({ 
-        type: 'error', 
-        text: 'Pagamento não foi aprovado. Por favor, tente novamente.' 
-      });
-    };
-
-    socket.on('payment-confirmed', handlePaymentConfirmed);
-    socket.on('payment-failed', handlePaymentFailed);
-
-    return () => {
-      socket.off('payment-confirmed', handlePaymentConfirmed);
-      socket.off('payment-failed', handlePaymentFailed);
-    };
-  }, [socket, isConnected, showPixModal, session, pixPaymentData, refreshUser]);
-
-  // Set waiting state when PIX modal opens
-  useEffect(() => {
-    if (showPixModal && pixPaymentData) {
-      setWaitingForPayment(true);
-    }
-  }, [showPixModal, pixPaymentData]);
-
   const fetchMachineInfo = async () => {
     try {
       setLoading(true);
@@ -201,11 +124,6 @@ export const MachineActivationPage: React.FC = () => {
     }
   };
 
-  const handlePaymentMethodChange = (method: 'balance' | 'pix' | 'mixed', data?: any) => {
-    setPaymentMethod(method);
-    setPaymentData(data);
-  };
-
   const handleActivation = async () => {
     if (!user) {
       navigate('/login');
@@ -217,8 +135,8 @@ export const MachineActivationPage: React.FC = () => {
       return;
     }
 
-    // Check if user has insufficient balance when using balance payment
-    if (paymentMethod === 'balance' && user && user.accountBalance < duration) {
+    // Check if user has insufficient balance
+    if (user && user.accountBalance < duration) {
       setShowInsufficientBalanceModal(true);
       return;
     }
@@ -227,55 +145,22 @@ export const MachineActivationPage: React.FC = () => {
       setProcessing(true);
       setError('');
 
-      console.log('Creating session:', { machineId: machine.id, duration, paymentMethod });
+      console.log('Creating session:', { machineId: machine.id, duration, paymentMethod: 'balance' });
 
-      // Create session
+      // Create session with balance payment
       const sessionResponse = await api.post('/sessions/create', {
         machineId: machine.id,
         duration,
-        paymentMethod,
+        paymentMethod: 'balance',
       });
 
       const sessionData = sessionResponse.data.session;
       console.log('Session created:', sessionData);
       setSession(sessionData);
 
-      // Handle payment based on method
-      if (paymentMethod === 'balance') {
-        // Activate immediately for balance payment
-        const activateResponse = await api.post(`/sessions/${sessionData.id}/activate`);
-        setSession(activateResponse.data.session);
-      } else if (paymentMethod === 'pix') {
-        // PIX payment was already created by the backend during session creation
-        const pixData = sessionResponse.data.paymentRequired?.pixPayment;
-        
-        console.log('PIX Payment Response:', pixData);
-
-        if (pixData) {
-          setPixPaymentData({
-            id: pixData.id,
-            qrCode: pixData.qrCode,
-            qrCodeBase64: pixData.qrCodeBase64,
-            pixCopyPaste: pixData.pixCopyPaste,
-            amount: duration
-          });
-          setShowPixModal(true);
-        }
-
-        // Note: In production, payment confirmation would be handled by Mercado Pago webhooks
-        // The session will activate automatically when the webhook confirms the payment
-      } else if (paymentMethod === 'mixed') {
-        // Handle mixed payment
-        await api.post('/payments/mixed', {
-          totalAmount: duration,
-          balanceAmount: paymentData.balanceAmount,
-          description: `Machine usage - ${machine.location} (${duration} minutes)`,
-        });
-
-        // Activate session after mixed payment
-        const activateResponse = await api.post(`/sessions/${sessionData.id}/activate`);
-        setSession(activateResponse.data.session);
-      }
+      // Activate immediately for balance payment
+      const activateResponse = await api.post(`/sessions/${sessionData.id}/activate`);
+      setSession(activateResponse.data.session);
 
     } catch (error: any) {
       setError(error.response?.data?.error || 'Failed to activate machine');
@@ -321,21 +206,6 @@ export const MachineActivationPage: React.FC = () => {
     setShowStopModal(false);
     setError(''); // Clear any errors when cancelling
   };
-
-  const handleCopyPixCode = () => {
-    if (pixPaymentData?.pixCopyPaste) {
-      navigator.clipboard.writeText(pixPaymentData.pixCopyPaste);
-      setMessage({ type: 'success', text: 'Código PIX copiado!' });
-    }
-  };
-
-  const handleClosePixModal = () => {
-    setShowPixModal(false);
-    // Keep pixPaymentData so user can check payment status
-  };
-
-  // Note: Automatic polling disabled to avoid Mercado Pago rate limits
-  // In production, use Mercado Pago webhooks for automatic payment confirmation
 
   if (loading) {
     return (
@@ -554,7 +424,6 @@ export const MachineActivationPage: React.FC = () => {
               <button
                 onClick={() => {
                   // Close any open modals
-                  setShowPixModal(false);
                   setShowStopModal(false);
                   setSidebarOpen(false);
                   // Logout and redirect to home
@@ -702,15 +571,6 @@ export const MachineActivationPage: React.FC = () => {
                 </span>
               )}
             </button>
-
-            {/* Payment Method */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-6">
-              <PaymentMethodSelector
-                amount={duration}
-                onPaymentMethodChange={handlePaymentMethodChange}
-                disabled={processing}
-              />
-            </div>
           </div>
         )}
 
@@ -961,103 +821,6 @@ export const MachineActivationPage: React.FC = () => {
         </div>
       )}
 
-      {/* PIX Payment Modal */}
-      {showPixModal && pixPaymentData && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-3">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-1">Pagamento PIX</h3>
-              <p className="text-sm text-gray-600">Copie o código e cole no app do seu banco</p>
-            </div>
-
-            {/* Message */}
-            {message && (
-              <div className={`mb-4 p-3 rounded-lg flex justify-between items-center ${
-                message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'
-              }`}>
-                <span className="text-sm font-medium">{message.text}</span>
-                <button
-                  onClick={() => setMessage(null)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
-
-            {/* Amount */}
-            <div className="bg-green-50 border-2 border-green-200 rounded-lg p-3 mb-4 text-center">
-              <p className="text-xs text-green-700 mb-1">Valor a pagar</p>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(pixPaymentData.amount)}</p>
-            </div>
-
-            {/* PIX Copy Paste Code */}
-            {pixPaymentData.pixCopyPaste && (
-              <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Código PIX Copia e Cola</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={pixPaymentData.pixCopyPaste}
-                    readOnly
-                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-50 text-xs font-mono pr-20"
-                  />
-                  <button
-                    onClick={handleCopyPixCode}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-bold transition-colors"
-                  >
-                    Copiar
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Instructions */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-              <p className="text-xs text-blue-800 font-semibold mb-2">Como pagar:</p>
-              <ol className="text-xs text-blue-800 space-y-1 list-decimal list-inside">
-                <li>Abra o app do seu banco</li>
-                <li>Escolha pagar com PIX</li>
-                <li>Cole o código copiado</li>
-                <li>Confirme o pagamento</li>
-                <li>O aspirador iniciará automaticamente</li>
-              </ol>
-            </div>
-
-            {/* Waiting for payment */}
-            {waitingForPayment && (
-              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4 mb-4 text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <svg className="animate-spin h-5 w-5 text-yellow-600 mr-2" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span className="text-sm font-semibold text-yellow-700">Aguardando confirmação do pagamento...</span>
-                </div>
-                <p className="text-xs text-yellow-600">
-                  Assim que o pagamento for confirmado, a máquina será ativada automaticamente
-                </p>
-              </div>
-            )}
-
-            {/* Close Button */}
-            <button
-              onClick={handleClosePixModal}
-              className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg transition-colors"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Insufficient Balance Modal */}
       {showInsufficientBalanceModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -1092,17 +855,6 @@ export const MachineActivationPage: React.FC = () => {
                 className="w-full bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg hover:shadow-xl"
               >
                 Adicionar Créditos
-              </button>
-
-              {/* Use PIX Instead Button */}
-              <button
-                onClick={() => {
-                  setShowInsufficientBalanceModal(false);
-                  setPaymentMethod('pix');
-                }}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl transition-all"
-              >
-                Pagar com PIX
               </button>
 
               {/* Close Button */}
