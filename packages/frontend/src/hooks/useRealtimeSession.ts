@@ -43,12 +43,10 @@ export const useRealtimeSession = (sessionId?: string) => {
         setSessionData(data.data);
         
         // Calculate time remaining for active sessions
-        if (data.data.status === 'active' && data.data.startTime) {
-          const startTime = new Date(data.data.startTime);
-          const endTime = new Date(startTime.getTime() + data.data.duration * 60 * 1000);
-          const now = new Date();
-          const remaining = Math.max(0, Math.floor((endTime.getTime() - now.getTime()) / 1000));
-          setTimeRemaining(remaining);
+        if (data.data.status === 'active') {
+          // Set remaining time to the full duration when session becomes active
+          // The countdown will handle the rest
+          setTimeRemaining(data.data.duration * 60);
         } else {
           setTimeRemaining(null);
         }

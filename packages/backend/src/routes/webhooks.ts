@@ -70,30 +70,70 @@ router.post('/mercadopago', async (req: express.Request, res: express.Response) 
 
           if (paymentStatus.status === 'approved') {
             console.log(`Payment ${paymentId} approved, confirming...`);
-            // Confirmar pagamento no sistema
-            const transaction = await paymentService.confirmPIXPayment(paymentId.toString());
-
+            
+            // Try to find transaction first (for credit additions)
+            let transaction = await transactionRepository.findByPaymentId(paymentId.toString());
+            
             if (transaction) {
-              console.log(`Payment ${paymentId} confirmed for user ${transaction.userId}`);
-              logger.info(`Pagamento ${paymentId} confirmado com sucesso para usuário ${transaction.userId}`);
+              // This is a credit addition payment
+              console.log(`Found transaction for payment ${paymentId}, confirming credit addition...`);
+              transaction = await paymentService.confirmPIXPayment(paymentId.toString());
 
-              // Buscar usuário atualizado
-              const user = await userRepository.findById(transaction.userId);
+              if (transaction) {
+                console.log(`Payment ${paymentId} confirmed for user ${transaction.userId}`);
+                logger.info(`Pagamento ${paymentId} confirmado com sucesso para usuário ${transaction.userId}`);
 
-              if (user) {
-                console.log(`Sending WebSocket notification to user ${transaction.userId}`);
-                // Notificar usuário via WebSocket
-                webSocketService.sendToUser(transaction.userId, 'payment-confirmed', {
-                  transactionId: transaction.id,
+                // Buscar usuário atualizado
+                const user = await userRepository.findById(transaction.userId);
+
+                if (user) {
+                  console.log(`Sending WebSocket notification to user ${transaction.userId}`);
+                  // Notificar usuário via WebSocket
+                  webSocketService.sendToUser(transaction.userId, 'payment-confirmed', {
+                    transactionId: transaction.id,
+                    paymentId: paymentId.toString(),
+                    amount: transaction.amount,
+                    newBalance: user.accountBalance,
+                    type: transaction.type,
+                    timestamp: new Date().toISOString()
+                  });
+
+                  console.log(`WebSocket notification sent to user ${transaction.userId}`);
+                  logger.info(`Notificação WebSocket enviada para usuário ${transaction.userId}`);
+                }
+              }
+            } else {
+              // No transaction found, check if this is a session payment
+              console.log(`No transaction found for payment ${paymentId}, checking for session...`);
+              const usageSessionRepo = RepositoryFactory.getUsageSessionRepository();
+              const session = await usageSessionRepo.findByPaymentId(paymentId.toString());
+              
+              if (session) {
+                console.log(`Found session ${session.id} for payment ${paymentId}, activating...`);
+                logger.info(`Sessão ${session.id} encontrada para pagamento ${paymentId}`);
+                
+                // Import session service dynamically to avoid circular dependency
+                const { usageSessionService } = await import('../services/usageSessionService.js');
+                
+                // Activate the session
+                const activatedSession = await usageSessionService.activateSession(session.id);
+                
+                console.log(`Session ${session.id} activated for user ${session.userId}`);
+                logger.info(`Sessão ${session.id} ativada com sucesso para usuário ${session.userId}`);
+                
+                // Notify user via WebSocket
+                webSocketService.sendToUser(session.userId, 'payment-confirmed', {
+                  sessionId: session.id,
                   paymentId: paymentId.toString(),
-                  amount: transaction.amount,
-                  newBalance: user.accountBalance,
-                  type: transaction.type,
+                  amount: session.cost,
                   timestamp: new Date().toISOString()
                 });
-
-                console.log(`WebSocket notification sent to user ${transaction.userId}`);
-                logger.info(`Notificação WebSocket enviada para usuário ${transaction.userId}`);
+                
+                console.log(`WebSocket notification sent to user ${session.userId} for session ${session.id}`);
+                logger.info(`Notificação WebSocket enviada para usuário ${session.userId}`);
+              } else {
+                console.log(`WARNING: No transaction or session found for payment ${paymentId}`);
+                logger.warn(`Nenhuma transação ou sessão encontrada para pagamento ${paymentId}`);
               }
             }
           } else if (paymentStatus.status === 'rejected' || paymentStatus.status === 'cancelled') {

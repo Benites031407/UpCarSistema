@@ -34,6 +34,7 @@ export interface UsageSessionRepository extends BaseRepository<UsageSession, Cre
   findByMachineId(machineId: string, options?: QueryOptions): Promise<UsageSession[]>;
   findByStatus(status: 'pending' | 'active' | 'completed' | 'failed'): Promise<UsageSession[]>;
   findActiveSession(machineId: string): Promise<UsageSession | null>;
+  findByPaymentId(paymentId: string): Promise<UsageSession | null>;
   findUserDailyUsage(userId: string, date: Date): Promise<UsageSession[]>;
   updateStatus(sessionId: string, status: 'pending' | 'active' | 'completed' | 'failed', client?: PoolClient): Promise<UsageSession | null>;
   startSession(sessionId: string, startTime: Date, client?: PoolClient): Promise<UsageSession | null>;

@@ -38,9 +38,10 @@ class ApiClient {
               return this.client(originalRequest);
             }
           } catch (refreshError) {
-            // Refresh failed, redirect to login
+            // Refresh failed, show message and redirect to login
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
+            alert('Sessão atual expirada! Por favor entre novamente.');
             window.location.href = '/login';
           }
         }
