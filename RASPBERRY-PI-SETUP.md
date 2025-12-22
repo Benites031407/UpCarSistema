@@ -182,7 +182,7 @@ CONTROLLER_ID=Raspberry-pi-XX
 MACHINE_ID=your-machine-uuid-here
 
 # MQTT Configuration
-MQTT_BROKER_URL=mqtt://192.168.15.90:1884
+MQTT_BROKER_URL=mqtt://56.125.203.232:1883
 MQTT_USERNAME=
 MQTT_PASSWORD=
 
@@ -242,7 +242,7 @@ info: Controller ready and listening for commands
 
 ### 5.3 Test from Admin Dashboard
 
-1. Open your admin dashboard: http://192.168.15.90:3000/admin
+1. Open your admin dashboard: http://56.125.203.232/admin
 2. Go to **Monitoring** tab
 3. You should see your machine online
 4. Try activating it for 1 minute
