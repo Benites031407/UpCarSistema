@@ -334,17 +334,17 @@ export const AddCreditPage: React.FC = () => {
                 type="number"
                 value={creditAmount}
                 onChange={(e) => setCreditAmount(e.target.value)}
-                placeholder="0,00"
+                placeholder="Digite aqui o valor que deseja adicionar"
                 min="1"
                 step="0.01"
                 className="w-full pl-10 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 font-bold text-xl text-center"
               />
             </div>
-            <p className="text-xs text-gray-500 mt-1 text-center">
-              {creditAmount && parseFloat(creditAmount) > 0 
-                ? `Você receberá ${parseFloat(creditAmount).toFixed(0)} minutos de uso`
-                : 'Digite o valor que deseja adicionar'}
-            </p>
+            {creditAmount && parseFloat(creditAmount) > 0 && (
+              <p className="text-xs text-gray-500 mt-1 text-center">
+                Você receberá {parseFloat(creditAmount).toFixed(0)} minutos de uso
+              </p>
+            )}
           </div>
 
           {/* Payment Method Selection */}

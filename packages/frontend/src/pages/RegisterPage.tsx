@@ -310,10 +310,7 @@ export const RegisterPage: React.FC = () => {
           <a href="#" className="underline hover:text-gray-900 font-medium">Política de Privacidade</a>
         </p>
 
-        {/* Footer */}
-        <p className="text-center text-gray-600 text-xs uppercase tracking-wider animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.6s' }}>
-          Desenvolvido por: Cube³ Tecnologia
-        </p>
+
       </div>
 
       {/* Add custom animations */}

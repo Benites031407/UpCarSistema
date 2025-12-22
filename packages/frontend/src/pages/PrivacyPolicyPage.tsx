@@ -232,8 +232,6 @@ export const PrivacyPolicyPage: React.FC = () => {
             <div className="border-t border-gray-200 pt-6 mt-8">
               <p className="text-gray-600 text-center mb-4">
                 <strong>UpCar Aspiradores</strong>
-                <br />
-                Desenvolvido por: Cube³ Tecnologia
               </p>
               <p className="text-gray-600 text-center">
                 <strong>Contato:</strong>

@@ -192,8 +192,6 @@ export const TermsAndConditionsPage: React.FC = () => {
             <div className="border-t border-gray-200 pt-6 mt-8">
               <p className="text-gray-600 text-center">
                 <strong>UpCar Aspiradores</strong>
-                <br />
-                Desenvolvido por: Cube³ Tecnologia
               </p>
             </div>
           </div>

@@ -252,10 +252,7 @@ export const LoginPage: React.FC = () => {
           <a href="#" className="underline hover:text-white/80 font-medium">Política de Privacidade</a>
         </p>
 
-        {/* Footer */}
-        <p className="text-center text-white text-xs uppercase tracking-wider animate-fade-in drop-shadow-sm" style={{ animationDelay: '0.6s' }}>
-          Desenvolvido por: Cube³ Tecnologia
-        </p>
+
       </div>
 
       {/* Add custom animations */}
