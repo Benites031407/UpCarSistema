@@ -284,9 +284,6 @@ export const HomePage: React.FC = () => {
           {/* Code Input */}
           <div className="space-y-4">
             <div>
-              <label htmlFor="machine-code" className="block text-sm font-semibold text-gray-700 mb-3 text-center">
-                Código do Aspirador
-              </label>
               <input
                 id="machine-code"
                 type="text"
@@ -302,7 +299,7 @@ export const HomePage: React.FC = () => {
                     handleManualEntry();
                   }
                 }}
-                placeholder="12345"
+                placeholder="Digite aqui o código"
                 className="block w-full px-6 py-4 border-2 border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-center text-2xl font-bold tracking-widest"
                 maxLength={5}
                 autoFocus
