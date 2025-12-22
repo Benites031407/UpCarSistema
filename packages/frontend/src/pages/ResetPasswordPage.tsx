@@ -109,10 +109,7 @@ export const ResetPasswordPage: React.FC = () => {
           />
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-gray-600 text-xs uppercase tracking-wider mb-6 drop-shadow-sm">
-          Desenvolvido por: Cube³ Tecnologia
-        </p>
+
 
         {/* Reset Password Form */}
         <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8">

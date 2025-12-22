@@ -134,10 +134,7 @@ export const ForgotPasswordPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-gray-600 text-xs uppercase tracking-wider mt-6 drop-shadow-sm">
-          Desenvolvido por: Cube³ Tecnologia
-        </p>
+
       </div>
     </div>
   );
